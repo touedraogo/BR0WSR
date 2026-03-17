@@ -78,6 +78,7 @@
       display: flex;
       flex: 1;
       overflow: hidden;
+      position: relative;
     }
 
     /* ── SIDEBAR ── */
@@ -88,15 +89,54 @@
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
+      transition: transform 0.2s ease, opacity 0.2s ease;
     }
 
+    /* unpinned: sidebar floats over content */
+    #sidebar.unpinned {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+      transform: translateX(-221px);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #sidebar.unpinned.open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ── SIDEBAR HEADER ── */
     #sidebar-header {
       padding: 10px 10px 6px;
       font-size: 9px;
       color: var(--green3);
       letter-spacing: 0.15em;
       border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
+
+    /* ── PIN BUTTON ── */
+    #pin-btn {
+      background: none;
+      border: none;
+      padding: 2px;
+      cursor: pointer;
+      color: var(--green3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.1s, filter 0.1s;
+      flex-shrink: 0;
+    }
+    #pin-btn:hover { color: var(--green); filter: drop-shadow(0 0 4px #00ff4166); }
+    #pin-btn.pinned { color: var(--green); filter: drop-shadow(0 0 4px #00ff4166); }
+    #pin-btn #pin-icon-pinned   { display: none; }
+    #pin-btn.pinned #pin-icon-unpinned { display: none; }
+    #pin-btn.pinned #pin-icon-pinned   { display: block; }
 
     #tabs { flex: 1; overflow-y: auto; padding: 6px 0; }
     #tabs::-webkit-scrollbar { width: 3px; }
@@ -197,6 +237,19 @@
     }
     #vpn-disconnect-btn:hover { border-color: #ff4444; color: #ff4444; }
     #vpn-disconnect-btn.visible { display: block; }
+
+    /* ── EDGE TRIGGER STRIP ── */
+    #edge-trigger {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 8px;
+      z-index: 200;
+      pointer-events: all;
+    }
+    #sidebar.unpinned.open ~ #content #edge-trigger,
+    #sidebar:not(.unpinned) ~ #content #edge-trigger {
+      display: none;
+    }
 
     /* ── CONTENT AREA ── */
     #content {
@@ -360,7 +413,21 @@
 
 <div id="main">
   <div id="sidebar">
-    <div id="sidebar-header">// SESSIONS</div>
+    <div id="sidebar-header">
+      <span>// SESSIONS</span>
+      <button id="pin-btn" title="pin sidebar">
+        <!-- hollow pin (unpinned) -->
+        <svg id="pin-icon-unpinned" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="17" x2="12" y2="22"/>
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+        </svg>
+        <!-- filled pin (pinned) -->
+        <svg id="pin-icon-pinned" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="17" x2="12" y2="22"/>
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+        </svg>
+      </button>
+    </div>
     <div id="tabs"></div>
     <div id="sidebar-footer">
       <button id="new-tab-btn">+ new_session</button>
@@ -377,6 +444,7 @@
   </div>
 
   <div id="content">
+    <div id="edge-trigger"></div>
     <div id="home">
       <div id="home-logo">
         <span>BR0WSR</span><br/>
@@ -506,10 +574,14 @@
       id = Number(id)
       const div = document.createElement('div')
       div.className = 'tab' + (id === activeId ? ' active' : '')
-      div.innerHTML = `
-        <span class="tab-title">${meta.title}</span>
-        <span class="tab-close">[x]</span>
-      `
+      const titleSpan = document.createElement('span')
+      titleSpan.className = 'tab-title'
+      titleSpan.textContent = meta.title
+      const closeSpan = document.createElement('span')
+      closeSpan.className = 'tab-close'
+      closeSpan.textContent = '[x]'
+      div.appendChild(titleSpan)
+      div.appendChild(closeSpan)
       div.addEventListener('click', e => {
         if (e.target.classList.contains('tab-close')) return
         switchTab(id)
@@ -545,6 +617,79 @@
   // ── Init ─────────────────────────────────────────────────────
   openNewTab()
   setTimeout(() => homeInput.focus(), 100)
+
+  // ── Sidebar pin / hover ──────────────────────────────────────
+  const sidebar          = document.getElementById('sidebar')
+  const pinBtn           = document.getElementById('pin-btn')
+  const mainEl           = document.getElementById('main')
+
+  const EDGE_THRESHOLD = 8  // px from left edge to trigger open
+
+  let pinned        = localStorage.getItem('sidebar-pinned') === 'true'
+  let sidebarOpen   = false
+  let hoverCloseTimer = null
+  let cachedRect    = null
+
+  window.addEventListener('resize', () => { cachedRect = null })
+
+  function openSidebar() {
+    if (pinned || sidebarOpen) return
+    sidebarOpen = true
+    sidebar.classList.add('open')
+  }
+
+  function closeSidebar() {
+    if (pinned || !sidebarOpen) return
+    sidebarOpen = false
+    sidebar.classList.remove('open')
+  }
+
+  function applyPinState() {
+    clearTimeout(hoverCloseTimer)
+    sidebar.classList.toggle('unpinned', !pinned)
+    pinBtn.classList.toggle('pinned', pinned)
+    if (pinned) {
+      sidebarOpen = false
+      sidebar.classList.remove('open')
+    }
+  }
+
+  pinBtn.addEventListener('click', () => {
+    pinned = !pinned
+    localStorage.setItem('sidebar-pinned', pinned)
+    applyPinState()
+  })
+
+  // mousemove on #main: works on home screen (no webview)
+  mainEl.addEventListener('mousemove', e => {
+    if (pinned) return
+    if (!cachedRect) cachedRect = mainEl.getBoundingClientRect()
+    if (e.clientX - cachedRect.left <= EDGE_THRESHOLD) {
+      clearTimeout(hoverCloseTimer)
+      openSidebar()
+    }
+  })
+
+  // edge-trigger strip: catches entry when webview swallows mousemove
+  document.getElementById('edge-trigger').addEventListener('mouseenter', () => {
+    if (pinned) return
+    clearTimeout(hoverCloseTimer)
+    openSidebar()
+  })
+
+  // close when cursor leaves sidebar
+  sidebar.addEventListener('mouseleave', () => {
+    if (pinned) return
+    clearTimeout(hoverCloseTimer)
+    hoverCloseTimer = setTimeout(closeSidebar, 150)
+  })
+
+  // cancel close if cursor re-enters before timer fires
+  sidebar.addEventListener('mouseenter', () => {
+    clearTimeout(hoverCloseTimer)
+  })
+
+  applyPinState()
 
   // ── VPN ──────────────────────────────────────────────────────
   const vpnDot        = document.getElementById('vpn-dot')
