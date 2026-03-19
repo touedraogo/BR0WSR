@@ -304,7 +304,7 @@
       overflow: hidden;
     }
 
-    /* ── TERMINAL (right side, fit mode) ── */
+    /* ── TERMINAL (right side, resizable) ── */
     #terminal-panel {
       display: none;
       position: fixed;
@@ -312,13 +312,41 @@
       right: 0;
       bottom: 0;
       width: 400px;
+      height: 300px;
       background: #020a02;
       border-left: 3px solid #00ff41;
+      border-top: 3px solid #00ff41;
       flex-direction: column;
       z-index: 9997;
-      box-shadow: -4px 0 30px rgba(0, 255, 65, 0.15);
+      box-shadow: -4px -4px 30px rgba(0, 255, 65, 0.15);
     }
     #terminal-panel.visible { display: flex; }
+    
+    #terminal-resize-width {
+      position: absolute;
+      left: -6px;
+      top: 0;
+      bottom: 0;
+      width: 12px;
+      cursor: ew-resize;
+      z-index: 10;
+    }
+    #terminal-resize-width:hover {
+      background: linear-gradient(to right, transparent, #00ff4133, transparent);
+    }
+    
+    #terminal-resize-height {
+      position: absolute;
+      top: -6px;
+      left: 0;
+      right: 0;
+      height: 12px;
+      cursor: ns-resize;
+      z-index: 10;
+    }
+    #terminal-resize-height:hover {
+      background: linear-gradient(to bottom, transparent, #00ff4133, transparent);
+    }
     
     #terminal-container {
       flex: 1;
@@ -633,6 +661,8 @@
 
   <!-- ── TERMINAL ── -->
   <div id="terminal-panel">
+    <div id="terminal-resize-width"></div>
+    <div id="terminal-resize-height"></div>
     <div id="terminal-header">
       <span>⌨ TERMINAL</span>
       <button id="terminal-clear">clear</button>
@@ -1129,6 +1159,59 @@
   window.addEventListener('resize', () => {
     if (terminalVisible && term) {
       fitTerminal()
+    }
+  })
+
+  // ── TERMINAL RESIZE ───────────────────────────────────────────
+  const resizeWidthHandle = document.getElementById('terminal-resize-width')
+  const resizeHeightHandle = document.getElementById('terminal-resize-height')
+  let isResizingWidth = false
+  let isResizingHeight = false
+  let startX, startY, startWidth, startHeight
+
+  resizeWidthHandle.addEventListener('mousedown', (e) => {
+    isResizingWidth = true
+    startX = e.clientX
+    startWidth = terminalPanel.offsetWidth
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+    e.preventDefault()
+  })
+
+  resizeHeightHandle.addEventListener('mousedown', (e) => {
+    isResizingHeight = true
+    startY = e.clientY
+    startHeight = terminalPanel.offsetHeight
+    document.body.style.cursor = 'ns-resize'
+    document.body.style.userSelect = 'none'
+    e.preventDefault()
+  })
+
+  document.addEventListener('mousemove', (e) => {
+    if (isResizingWidth) {
+      const diff = startX - e.clientX
+      const newWidth = Math.max(300, Math.min(800, startWidth + diff))
+      terminalPanel.style.width = newWidth + 'px'
+      if (term) {
+        setTimeout(fitTerminal, 10)
+      }
+    }
+    if (isResizingHeight) {
+      const diff = e.clientY - startY
+      const newHeight = Math.max(150, Math.min(window.innerHeight - 100, startHeight + diff))
+      terminalPanel.style.height = newHeight + 'px'
+      if (term) {
+        setTimeout(fitTerminal, 10)
+      }
+    }
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (isResizingWidth || isResizingHeight) {
+      isResizingWidth = false
+      isResizingHeight = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
     }
   })
 
