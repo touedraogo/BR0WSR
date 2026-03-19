@@ -61,6 +61,10 @@ ipcMain.handle('vpn-status', async () => {
 })
 
 ipcMain.handle('vpn-connect', async (_, countryCode) => {
+  // Kill any existing NordVPN process first
+  await run('pkill -9 -f "NordVPN"')
+  await new Promise(r => setTimeout(r, 500))
+  
   if (countryCode) {
     await run(`"${VPN_CLI}" connect ${countryCode}`)
   } else {
@@ -93,6 +97,17 @@ ipcMain.handle('vpn-protocol-set', async (_, protocol) => {
   } else {
     await run(`"${VPN_CLI}" set protocol TCP`)
   }
+})
+
+ipcMain.handle('vpn-server', async () => {
+  const out = await run(`"${VPN_CLI}" status`)
+  const lines = out.split('\n')
+  for (const line of lines) {
+    if (line.includes('Server:')) {
+      return line.split('Server:')[1].trim()
+    }
+  }
+  return null
 })
 
 let win

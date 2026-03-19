@@ -182,17 +182,14 @@
       flex-shrink: 0;
     }
     #vpn-header {
-      padding: 8px 10px 4px;
-      font-size: 9px;
-      color: var(--green3);
-      letter-spacing: 0.15em;
+      padding: 8px 10px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
     }
     #vpn-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
+      width: 8px; height: 8px; border-radius: 50%;
       background: var(--green3);
       flex-shrink: 0;
       transition: background 0.3s, box-shadow 0.3s;
@@ -202,41 +199,60 @@
     #vpn-status-text { font-size: 9px; color: var(--green3); letter-spacing: 0.1em; }
     #vpn-status-text.connected { color: var(--green); }
 
-    #vpn-countries { padding: 4px 6px 6px; display: flex; flex-direction: column; gap: 3px; }
-
-    .vpn-country {
-      display: flex; align-items: center;
-      padding: 5px 8px; gap: 8px;
-      cursor: pointer;
-      border: 1px solid transparent;
-      transition: all 0.1s;
+    #vpn-controls {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    #vpn-select {
+      width: 100%;
+      padding: 6px 8px;
+      background: #000;
+      border: 1px solid var(--green3);
+      color: var(--green);
+      font-family: var(--mono);
       font-size: 11px;
+      cursor: pointer;
+      outline: none;
     }
-    .vpn-country:hover { border-color: var(--green3); background: var(--dim); }
-    .vpn-country.active {
-      border-color: var(--green);
-      background: var(--dim);
-      box-shadow: var(--glow);
+    #vpn-select:focus { border-color: var(--green); box-shadow: var(--glow); }
+    #vpn-select option { background: #0a0a0a; color: var(--green); }
+    
+    #vpn-actions {
+      display: flex;
+      gap: 6px;
     }
+    
+    #vpn-connect-btn, #vpn-disconnect-btn {
+      flex: 1;
+      padding: 6px;
+      background: none;
+      border: 1px solid var(--green3);
+      color: var(--green3);
+      font-family: var(--mono);
+      font-size: 10px;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: all 0.1s;
+    }
+    #vpn-connect-btn:hover { border-color: var(--green); color: var(--green); }
+    #vpn-disconnect-btn:hover { border-color: #ff4444; color: #ff4444; }
+    #vpn-connect-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    
+    #vpn-info {
+      font-size: 9px;
+      color: var(--green3);
+      text-align: center;
+      padding: 4px;
+    }
+    
+    #vpn-server { padding: 4px 10px; font-size: 9px; color: var(--muted); }
+    
     .vpn-flag { font-size: 14px; line-height: 1; }
     .vpn-name { flex: 1; color: var(--text); letter-spacing: 0.05em; }
-    .vpn-country.active .vpn-name { color: var(--green); text-shadow: var(--glow); }
-    .vpn-indicator {
-      font-size: 9px; color: var(--muted);
-      transition: color 0.2s;
-    }
-    .vpn-country.active .vpn-indicator { color: var(--green); content: '●'; }
-
-    #vpn-disconnect-btn {
-      display: none;
-      width: calc(100% - 12px); margin: 0 6px 6px;
-      padding: 5px; background: none;
-      border: 1px solid var(--green3); color: var(--green3);
-      font-family: var(--mono); font-size: 10px;
-      cursor: pointer; letter-spacing: 0.1em; transition: all 0.1s;
-    }
-    #vpn-disconnect-btn:hover { border-color: #ff4444; color: #ff4444; }
-    #vpn-disconnect-btn.visible { display: block; }
 
     /* ── EDGE TRIGGER STRIP ── */
     #edge-trigger {
@@ -478,10 +494,18 @@
     <div id="vpn-panel">
       <div id="vpn-header">
         <div id="vpn-dot"></div>
-        // VPN &nbsp;<span id="vpn-status-text">OFFLINE</span>
+        VPN &nbsp;<span id="vpn-status-text">OFFLINE</span>
       </div>
-      <div id="vpn-countries"><!-- filled by JS --></div>
-      <button id="vpn-disconnect-btn">⏻ disconnect</button>
+      <div id="vpn-controls">
+        <select id="vpn-select">
+          <option value="">-- Select Country --</option>
+        </select>
+        <div id="vpn-actions">
+          <button id="vpn-connect-btn">Connect</button>
+          <button id="vpn-disconnect-btn">Disconnect</button>
+        </div>
+      </div>
+      <div id="vpn-info">NordVPN Browser</div>
     </div>
   </div>
 
@@ -736,68 +760,80 @@
   // ── VPN ──────────────────────────────────────────────────────
   const vpnDot        = document.getElementById('vpn-dot')
   const vpnStatusText = document.getElementById('vpn-status-text')
-  const vpnCountriesEl= document.getElementById('vpn-countries')
+  const vpnSelect     = document.getElementById('vpn-select')
+  const vpnConnectBtn = document.getElementById('vpn-connect-btn')
   const vpnDisconnBtn = document.getElementById('vpn-disconnect-btn')
 
-  let vpnActiveCode = localStorage.getItem('vpn-country') || null
-  let vpnConnected  = false
+  let vpnConnected = false
+  let vpnConnecting = false
 
   async function vpnInit() {
     const countries = await window.browser.vpn.countries()
-    vpnCountriesEl.innerHTML = ''
+    vpnSelect.innerHTML = '<option value="">-- Select Country --</option>'
     for (const c of countries) {
-      const div = document.createElement('div')
-      div.className = 'vpn-country'
-      div.dataset.code = c.code
-      div.innerHTML = `
-        <span class="vpn-flag">${c.flag}</span>
-        <span class="vpn-name">${c.name}</span>
-        <span class="vpn-indicator">○</span>
-      `
-      div.addEventListener('click', () => vpnSelectCountry(c.code))
-      vpnCountriesEl.appendChild(div)
+      const opt = document.createElement('option')
+      opt.value = c.code
+      opt.textContent = `${c.flag} ${c.name}`
+      vpnSelect.appendChild(opt)
     }
-    vpnPollStatus()
+    vpnUpdateStatus()
   }
 
-  async function vpnSelectCountry(code) {
-    vpnActiveCode = code
-    localStorage.setItem('vpn-country', code)
-    vpnRenderCountries()
-    vpnStatusText.textContent = 'CONNECTING'
-    await window.browser.vpn.connect(code)
-    setTimeout(vpnPollStatus, 1500)
-  }
-
-  async function vpnPollStatus() {
+  async function vpnUpdateStatus() {
     const status = await window.browser.vpn.status()
     vpnConnected = status === 'Connected'
-    const connecting = status === 'Connecting'
+    vpnConnecting = status === 'Connecting'
 
-    vpnDot.className = vpnConnected ? 'connected' : connecting ? 'connecting' : ''
+    vpnDot.className = vpnConnected ? 'connected' : vpnConnecting ? 'connecting' : ''
     vpnStatusText.className = vpnConnected ? 'connected' : ''
-    vpnStatusText.textContent = vpnConnected ? 'SECURE' : connecting ? 'CONNECTING' : 'OFFLINE'
-    vpnDisconnBtn.className = (vpnConnected || connecting) ? 'visible' : ''
-    vpnRenderCountries()
+    vpnStatusText.textContent = vpnConnected ? 'CONNECTED' : vpnConnecting ? 'CONNECTING' : 'OFFLINE'
+    
+    vpnConnectBtn.disabled = vpnConnected || vpnConnecting
+    vpnDisconnBtn.style.opacity = vpnConnected ? '1' : '0.3'
   }
 
-  function vpnRenderCountries() {
-    vpnCountriesEl.querySelectorAll('.vpn-country').forEach(el => {
-      const isActive = vpnConnected && el.dataset.code === vpnActiveCode
-      el.classList.toggle('active', isActive)
-      el.querySelector('.vpn-indicator').textContent = isActive ? '●' : '○'
-    })
-  }
+  vpnConnectBtn.addEventListener('click', async () => {
+    const countryCode = vpnSelect.value
+    if (!countryCode) return
+    
+    vpnStatusText.textContent = 'CONNECTING...'
+    vpnDot.className = 'connecting'
+    vpnConnectBtn.disabled = true
+    
+    await window.browser.vpn.connect(countryCode)
+    
+    // Wait and check status
+    let attempts = 0
+    const checkStatus = setInterval(async () => {
+      await vpnUpdateStatus()
+      attempts++
+      if (vpnConnected || attempts > 30) {
+        clearInterval(checkStatus)
+        vpnConnectBtn.disabled = vpnConnected
+      }
+    }, 1000)
+  })
 
   vpnDisconnBtn.addEventListener('click', async () => {
+    vpnStatusText.textContent = 'DISCONNECTING...'
     await window.browser.vpn.disconnect()
-    vpnActiveCode = null
-    localStorage.removeItem('vpn-country')
-    setTimeout(vpnPollStatus, 800)
+    
+    let attempts = 0
+    const checkStatus = setInterval(async () => {
+      await vpnUpdateStatus()
+      attempts++
+      if (!vpnConnected || attempts > 10) {
+        clearInterval(checkStatus)
+      }
+    }, 500)
+  })
+
+  vpnSelect.addEventListener('change', () => {
+    vpnUpdateStatus()
   })
 
   vpnInit()
-  setInterval(vpnPollStatus, 4000)
+  setInterval(vpnUpdateStatus, 10000)
 
   // ── SCREENSHOT TO SEARCH ─────────────────────────────────────
   const screenshotOverlay   = document.getElementById('screenshot-overlay')
