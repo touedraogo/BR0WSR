@@ -1,7 +1,18 @@
-const { app, BrowserWindow, ipcMain, session, systemPreferences, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, session, systemPreferences } = require('electron')
 const { ElectronBlocker } = require('@cliqz/adblocker-electron')
 const { exec, spawn } = require('child_process')
 const path = require('path')
+
+let pty = null
+let usePty = false
+
+try {
+  pty = require('node-pty')
+  usePty = true
+  console.log('[Terminal] node-pty loaded successfully')
+} catch (err) {
+  console.log('[Terminal] node-pty not available, using fallback shell')
+}
 
 const COUNTRIES = [
   { code: 'us', name: 'United States', flag: '🇺🇸' },
@@ -50,70 +61,119 @@ ipcMain.handle('auth-fingerprint', async () => {
 
 ipcMain.handle('vpn-countries', () => COUNTRIES)
 
-// ── Terminal (simple shell execution) ────────────────────────────
-let currentProcess = null
-let shellHistory = []
-let historyIndex = -1
+// ── Terminal with node-pty ────────────────────────────────────
+let ptyProcess = null
+let fallbackProcess = null
 
-function createShellProcess() {
-  if (currentProcess) {
-    currentProcess.kill()
+function createPtyProcess(cols, rows) {
+  if (ptyProcess) {
+    ptyProcess.kill()
+    ptyProcess = null
   }
+
+  const shell = process.platform === 'win32' ? 'powershell.exe' : process.env.SHELL || '/bin/sh'
   
+  ptyProcess = pty.spawn(shell, [], {
+    name: 'xterm-256color',
+    cols: cols || 80,
+    rows: rows || 24,
+    cwd: process.env.HOME || '/',
+    env: process.env
+  })
+
+  ptyProcess.onData((data) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('terminal-data', data)
+    }
+  })
+
+  ptyProcess.onExit(({ exitCode }) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('terminal-exit', exitCode)
+    }
+    ptyProcess = null
+  })
+
+  console.log('[Terminal] PTY created with shell:', shell)
+  return { success: true, shell }
+}
+
+function createFallbackProcess() {
+  if (fallbackProcess) {
+    fallbackProcess.kill()
+    fallbackProcess = null
+  }
+
   const shellCmd = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
-  currentProcess = spawn(shellCmd, [], {
+  fallbackProcess = spawn(shellCmd, [], {
     cwd: process.env.HOME || '/',
     env: process.env,
     shell: false
   })
-  
-  let buffer = ''
-  
-  currentProcess.stdout.on('data', (data) => {
-    buffer += data.toString()
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-    lines.forEach(line => {
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('terminal-data', line + '\r\n')
-      }
-    })
-  })
-  
-  currentProcess.stderr.on('data', (data) => {
+
+  fallbackProcess.stdout.on('data', (data) => {
     if (win && !win.isDestroyed()) {
       win.webContents.send('terminal-data', data.toString())
     }
   })
-  
-  currentProcess.on('close', (code) => {
-    if (buffer && win && !win.isDestroyed()) {
-      win.webContents.send('terminal-data', buffer + '\r\n')
+
+  fallbackProcess.stderr.on('data', (data) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('terminal-data', data.toString())
     }
+  })
+
+  fallbackProcess.on('close', (code) => {
     if (win && !win.isDestroyed()) {
       win.webContents.send('terminal-exit', code)
     }
-    currentProcess = null
+    fallbackProcess = null
   })
-  
-  return { success: true }
+
+  console.log('[Terminal] Fallback shell created')
+  return { success: true, shell: 'sh (fallback)' }
 }
 
-ipcMain.handle('terminal-create', async () => {
-  console.log('[Terminal] Creating shell...')
-  return createShellProcess()
-})
-
-ipcMain.handle('terminal-input', async (_, data) => {
-  if (currentProcess) {
-    currentProcess.stdin.write(data)
+ipcMain.handle('terminal-create', async (_, options = {}) => {
+  const cols = options.cols || 80
+  const rows = options.rows || 24
+  
+  console.log('[Terminal] Creating terminal with cols:', cols, 'rows:', rows)
+  
+  if (usePty) {
+    return createPtyProcess(cols, rows)
+  } else {
+    return createFallbackProcess()
   }
 })
 
+ipcMain.handle('terminal-input', async (_, data) => {
+  if (ptyProcess) {
+    ptyProcess.write(data)
+  } else if (fallbackProcess) {
+    fallbackProcess.stdin.write(data)
+  }
+})
+
+ipcMain.handle('terminal-resize', async (_, cols, rows) => {
+  if (ptyProcess) {
+    ptyProcess.resize(cols, rows)
+    console.log('[Terminal] Resized to cols:', cols, 'rows:', rows)
+    return true
+  }
+  return false
+})
+
 ipcMain.handle('terminal-kill', async () => {
-  if (currentProcess) {
-    currentProcess.kill()
-    currentProcess = null
+  if (ptyProcess) {
+    ptyProcess.kill()
+    ptyProcess = null
+    console.log('[Terminal] PTY killed')
+  }
+  if (fallbackProcess) {
+    fallbackProcess.kill()
+    fallbackProcess = null
+    console.log('[Terminal] Fallback process killed')
   }
 })
 
@@ -132,7 +192,6 @@ ipcMain.handle('vpn-status', async () => {
 })
 
 ipcMain.handle('vpn-connect', async (_, countryCode) => {
-  // Use NordVPN URL scheme to connect
   await run(`open "nordvpn://connect?country=${countryCode}"`)
 })
 
@@ -188,6 +247,18 @@ app.whenReady().then(() => {
 ipcMain.handle('screenshot-capture', async () => {
   const image = await win.webContents.capturePage()
   return image.toDataURL()
+})
+
+// Cleanup on quit
+app.on('before-quit', () => {
+  if (ptyProcess) {
+    ptyProcess.kill()
+    ptyProcess = null
+  }
+  if (fallbackProcess) {
+    fallbackProcess.kill()
+    fallbackProcess = null
+  }
 })
 
 app.on('window-all-closed', () => app.quit())

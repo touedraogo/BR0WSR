@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>BR0WSR - NordVPN Browser</title>
+  <link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css" />
   <style>
     :root {
       --green:   #00ff41;
@@ -324,25 +325,21 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      min-height: 0;
     }
     
-    #terminal-output {
+    #xterm-container {
       flex: 1;
-      overflow-y: auto;
-      padding: 12px;
-      font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-      font-size: 14px;
-      color: #00ff41;
+      padding: 8px;
       background: #020a02;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      line-height: 1.4;
-      min-height: 0;
-      text-shadow: 0 0 6px #00ff4166;
     }
-    #terminal-output::-webkit-scrollbar { width: 8px; }
-    #terminal-output::-webkit-scrollbar-thumb { background: #0a2e0a; border-radius: 4px; }
+    
+    #xterm-container .xterm {
+      height: 100%;
+    }
+    
+    #xterm-container .xterm-viewport {
+      background: #020a02 !important;
+    }
     
     #terminal-header {
       display: flex;
@@ -369,41 +366,6 @@
       background: #00ff4122;
       box-shadow: 0 0 10px #00ff4144;
     }
-    
-    #terminal-input-row {
-      display: flex;
-      align-items: center;
-      padding: 10px 16px;
-      background: #0a1a0a;
-      border-top: 2px solid #ff9500;
-      min-height: 50px;
-      position: relative;
-      z-index: 100;
-    }
-    #terminal-input-row::before {
-      content: '$';
-      color: #00ff41;
-      font-weight: bold;
-      margin-right: 10px;
-    }
-    #terminal-input {
-      flex: 1;
-      background: #1a0f00 !important;
-      border: 2px solid #ff9500 !important;
-      color: #ffcc66 !important;
-      font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-      font-size: 14px;
-      outline: none;
-      caret-color: #ffcc66;
-      padding: 6px 10px;
-      border-radius: 3px;
-      opacity: 1 !important;
-      visibility: visible !important;
-    }
-    #terminal-input:focus {
-      box-shadow: 0 0 15px #ff950088;
-    }
-    #terminal-input::placeholder { color: #4a3000; }
 
     /* ── HOME SCREEN ── */
     #home {
@@ -672,15 +634,13 @@
       <button id="terminal-close">×</button>
     </div>
     <div id="terminal-container">
-      <div id="terminal-output"></div>
-    </div>
-    <div id="terminal-input-row">
-      <input id="terminal-input" type="text" autocomplete="off" spellcheck="false" />
+      <div id="xterm-container"></div>
     </div>
   </div>
 </div>
 
-<div id="terminal-floater"></div>
+<script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
 
 <script>
   const urlBar    = document.getElementById('url-bar')
@@ -1022,53 +982,110 @@
     }
   })
 
-  // ── TERMINAL ─────────────────────────────────────────────────
+  // ── TERMINAL with xterm.js ───────────────────────────────────
   const terminalPanel = document.getElementById('terminal-panel')
-  const terminalContainer = document.getElementById('terminal-container')
-  const terminalOutput = document.getElementById('terminal-output')
-  const terminalInput = document.getElementById('terminal-input')
+  const xtermContainer = document.getElementById('xterm-container')
   const toggleTerminalBtn = document.getElementById('toggle-terminal')
   const terminalClearBtn = document.getElementById('terminal-clear')
   const terminalCloseBtn = document.getElementById('terminal-close')
+  const terminalKillBtn = document.getElementById('terminal-kill')
 
   let terminalVisible = localStorage.getItem('terminal-visible') === 'true'
+  let term = null
+  let fitAddon = null
   let terminalReady = false
-  let terminalKillBtn
-
-  function appendOutput(text) {
-    terminalOutput.textContent += text
-    terminalOutput.scrollTop = terminalOutput.scrollHeight
-  }
 
   async function initTerminal() {
-    if (terminalReady) return
+    if (term) return
     
-    appendOutput('Creating shell...\r\n')
+    term = new Terminal({
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontSize: 14,
+      fontFamily: "'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+      theme: {
+        background: '#020a02',
+        foreground: '#00ff41',
+        cursor: '#00ff41',
+        cursorAccent: '#020a02',
+        selectionBackground: '#00ff4144',
+        black: '#000000',
+        red: '#ff6b6b',
+        green: '#00ff41',
+        yellow: '#ffcc00',
+        blue: '#00aaff',
+        magenta: '#ff66ff',
+        cyan: '#00ffcc',
+        white: '#cccccc',
+        brightBlack: '#666666',
+        brightRed: '#ff8888',
+        brightGreen: '#66ff66',
+        brightYellow: '#ffdd44',
+        brightBlue: '#44aaff',
+        brightMagenta: '#ff88ff',
+        brightCyan: '#66ffdd',
+        brightWhite: '#ffffff'
+      },
+      allowProposedApi: true
+    })
+    
+    fitAddon = new FitAddon.FitAddon()
+    term.loadAddon(fitAddon)
+    
+    term.open(xtermContainer)
+    fitAddon.fit()
+    
+    const dims = { cols: term.cols, rows: term.rows }
     
     try {
-      const result = await window.browser.terminal.create()
+      const result = await window.browser.terminal.create(dims)
       console.log('[Terminal] Create result:', result)
       
       if (!result || !result.success) {
-        appendOutput('Error: ' + (result?.error || 'Unknown error') + '\r\n')
+        term.writeln('\r\n\x1b[31mError: Failed to create terminal process\x1b[0m')
         return
       }
       
       terminalReady = true
-      appendOutput('$ ')
-      terminalInput.focus()
+      term.writeln('\x1b[32m[Terminal ready]\x1b[0m\r\n')
       
       window.browser.terminal.onData((data) => {
-        appendOutput(data)
+        if (term) {
+          term.write(data)
+        }
       })
       
       window.browser.terminal.onExit((code) => {
-        appendOutput(`\r\n[Shell exited: ${code}]\r\n`)
-        terminalReady = false
+        if (term) {
+          term.writeln(`\r\n\x1b[33m[Shell exited: ${code}]\x1b[0m`)
+          terminalReady = false
+        }
       })
+      
+      term.onData((data) => {
+        if (terminalReady) {
+          window.browser.terminal.input(data)
+        }
+      })
+      
+      term.onResize(({ cols, rows }) => {
+        if (terminalReady) {
+          window.browser.terminal.resize(cols, rows)
+        }
+      })
+      
     } catch (err) {
       console.error('[Terminal] Error:', err)
-      appendOutput('Error: ' + err.message + '\r\n')
+      term.writeln('\r\n\x1b[31mError: ' + err.message + '\x1b[0m')
+    }
+  }
+
+  function fitTerminal() {
+    if (fitAddon) {
+      fitAddon.fit()
+      if (terminalReady) {
+        window.browser.terminal.resize(term.cols, term.rows)
+      }
     }
   }
 
@@ -1078,7 +1095,10 @@
     localStorage.setItem('terminal-visible', terminalVisible)
     
     if (terminalVisible) {
-      initTerminal()
+      setTimeout(() => {
+        initTerminal()
+        setTimeout(fitTerminal, 50)
+      }, 100)
     }
   }
 
@@ -1086,84 +1106,33 @@
   terminalCloseBtn.addEventListener('click', toggleTerminal)
 
   terminalClearBtn.addEventListener('click', () => {
-    terminalOutput.textContent = ''
-  })
-
-  terminalKillBtn = document.getElementById('terminal-kill')
-  terminalKillBtn.addEventListener('click', () => {
-    window.browser.terminal.kill()
-    terminalReady = false
-    appendOutput('\r\n[Process killed]\r\n')
-  })
-
-  terminalInput.addEventListener('keydown', (e) => {
-    if (!terminalReady) return
-    
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      appendOutput('\r\n')
-      const cmd = terminalInput.value
-      terminalInput.value = ''
-      window.browser.terminal.input(cmd + '\n')
-    } else if (e.key === 'Backspace') {
-      e.preventDefault()
-      window.browser.terminal.input('\x7f')
-    } else if (e.key === 'Delete') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1b[3~')
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1b')
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1b[A')
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1b[B')
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1b[D')
-    } else if (e.key === 'ArrowRight') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1b[C')
-    } else if (e.key === 'Tab') {
-      e.preventDefault()
-      window.browser.terminal.input('\t')
-    } else if (e.key === 'Home') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1b[H')
-    } else if (e.key === 'End') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1b[F')
-    } else if (e.ctrlKey && e.key.toLowerCase() === 'c') {
-      e.preventDefault()
-      window.browser.terminal.input('\x03')
-      terminalInput.value = ''
-    } else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
-      e.preventDefault()
-      window.browser.terminal.input('\x0c')
-      terminalOutput.textContent = ''
-      terminalInput.value = ''
-    } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
-      e.preventDefault()
-      window.browser.terminal.input('\x1a')
-      terminalInput.value = ''
-    } else if (e.ctrlKey && e.key.toLowerCase() === 'd') {
-      e.preventDefault()
-      window.browser.terminal.input('\x04')
-    } else if (e.metaKey && e.key === 'k') {
-      e.preventDefault()
-      terminalOutput.textContent = ''
-      terminalInput.value = ''
-    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault()
-      window.browser.terminal.input(e.key)
+    if (term) {
+      term.clear()
+      term.write('\x1b[2J\x1b[H')
     }
   })
 
-  // Restore terminal state
+  terminalKillBtn.addEventListener('click', () => {
+    window.browser.terminal.kill()
+    if (term) {
+      term.writeln('\r\n\x1b[31m[Process killed]\x1b[0m')
+    }
+    terminalReady = false
+  })
+
+  window.addEventListener('resize', () => {
+    if (terminalVisible && term) {
+      fitTerminal()
+    }
+  })
+
+  // Restore terminal state on load
   if (terminalVisible) {
     terminalPanel.classList.add('visible')
+    setTimeout(() => {
+      initTerminal()
+      setTimeout(fitTerminal, 100)
+    }, 300)
   }
 
   // ── SCREENSHOT TO SEARCH ─────────────────────────────────────
