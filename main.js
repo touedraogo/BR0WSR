@@ -3,14 +3,29 @@ const { ElectronBlocker } = require('@cliqz/adblocker-electron')
 const { exec } = require('child_process')
 const path = require('path')
 
-const VPN_PROFILE = 'ExpressVPN Lightway'
+const VPN_CLI = '/Applications/NordVPN.app/Contents/MacOS/Nordvpn'
 
 const COUNTRIES = [
-  { code: 'us', name: 'USA',         flag: '🇺🇸' },
-  { code: 'gb', name: 'UK',          flag: '🇬🇧' },
-  { code: 'de', name: 'Germany',     flag: '🇩🇪' },
+  { code: 'us', name: 'United States', flag: '🇺🇸' },
+  { code: 'gb', name: 'United Kingdom', flag: '🇬🇧' },
+  { code: 'de', name: 'Germany', flag: '🇩🇪' },
+  { code: 'fr', name: 'France', flag: '🇫🇷' },
   { code: 'nl', name: 'Netherlands', flag: '🇳🇱' },
-  { code: 'jp', name: 'Japan',       flag: '🇯🇵' },
+  { code: 'jp', name: 'Japan', flag: '🇯🇵' },
+  { code: 'au', name: 'Australia', flag: '🇦🇺' },
+  { code: 'ca', name: 'Canada', flag: '🇨🇦' },
+  { code: 'ch', name: 'Switzerland', flag: '🇨🇭' },
+  { code: 'se', name: 'Sweden', flag: '🇸🇪' },
+  { code: 'pl', name: 'Poland', flag: '🇵🇱' },
+  { code: 'no', name: 'Norway', flag: '🇳🇴' },
+  { code: 'dk', name: 'Denmark', flag: '🇩🇰' },
+  { code: 'fi', name: 'Finland', flag: '🇫🇮' },
+  { code: 'it', name: 'Italy', flag: '🇮🇹' },
+  { code: 'es', name: 'Spain', flag: '🇪🇸' },
+  { code: 'pt', name: 'Portugal', flag: '🇵🇹' },
+  { code: 'br', name: 'Brazil', flag: '🇧🇷' },
+  { code: 'sg', name: 'Singapore', flag: '🇸🇬' },
+  { code: 'kr', name: 'South Korea', flag: '🇰🇷' },
 ]
 
 function run(cmd) {
@@ -38,26 +53,46 @@ ipcMain.handle('auth-fingerprint', async () => {
 ipcMain.handle('vpn-countries', () => COUNTRIES)
 
 ipcMain.handle('vpn-status', async () => {
-  const out = await run('scutil --nc list')
-  for (const line of out.split('\n')) {
-    if (line.includes(VPN_PROFILE)) {
-      if (line.includes('(Connected)'))    return 'Connected'
-      if (line.includes('(Connecting)'))   return 'Connecting'
-      if (line.includes('(Disconnecting)'))return 'Disconnecting'
-    }
-  }
+  const out = await run(`"${VPN_CLI}" status`)
+  if (out.includes('Connected')) return 'Connected'
+  if (out.includes('Connecting')) return 'Connecting'
+  if (out.includes('Disconnecting')) return 'Disconnecting'
   return 'Disconnected'
 })
 
 ipcMain.handle('vpn-connect', async (_, countryCode) => {
-  // Open ExpressVPN app so user can confirm / change server, then connect the profile
-  await run(`open "expressvpn://"`)
-  await new Promise(r => setTimeout(r, 800))
-  await run(`scutil --nc start "${VPN_PROFILE}"`)
+  if (countryCode) {
+    await run(`"${VPN_CLI}" connect ${countryCode}`)
+  } else {
+    await run(`"${VPN_CLI}" connect`)
+  }
 })
 
 ipcMain.handle('vpn-disconnect', async () => {
-  await run(`scutil --nc stop "${VPN_PROFILE}"`)
+  await run(`"${VPN_CLI}" disconnect`)
+})
+
+ipcMain.handle('vpn-quick-connect', async () => {
+  await run(`"${VPN_CLI}" connect`)
+})
+
+ipcMain.handle('vpn-reconnect', async () => {
+  await run(`"${VPN_CLI}" reconnect`)
+})
+
+ipcMain.handle('vpn-protocol', async () => {
+  const out = await run(`"${VPN_CLI}" settings`)
+  if (out.includes('UDP')) return 'UDP'
+  if (out.includes('TCP')) return 'TCP'
+  return 'N/A'
+})
+
+ipcMain.handle('vpn-protocol-set', async (_, protocol) => {
+  if (protocol === 'UDP') {
+    await run(`"${VPN_CLI}" set protocol UDP`)
+  } else {
+    await run(`"${VPN_CLI}" set protocol TCP`)
+  }
 })
 
 let win

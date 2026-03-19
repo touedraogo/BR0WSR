@@ -1,14 +1,42 @@
 {
-  "name": "simplebrowser",
+  "name": "browser-electron-nordvpn",
   "version": "1.0.0",
+  "description": "Secure Browser with NordVPN integration",
+  "author": "Your Name",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:dmg": "electron-builder --mac dmg"
   },
   "devDependencies": {
-    "electron": "^29.0.0"
+    "electron": "^29.0.0",
+    "electron-builder": "^24.13.3"
   },
   "dependencies": {
     "@cliqz/adblocker-electron": "^1.34.0"
+  },
+  "build": {
+    "appId": "com.nordvpn.browser",
+    "productName": "NordVPN Browser",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": ["dmg"]
+    },
+    "dmg": {
+      "title": "NordVPN Browser",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   }
 }
