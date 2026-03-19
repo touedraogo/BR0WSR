@@ -1005,7 +1005,7 @@
   const terminalCloseBtn = document.getElementById('terminal-close')
 
   let terminalVisible = localStorage.getItem('terminal-visible') === 'true'
-  let ptyReady = false
+  let terminalReady = false
 
   function appendOutput(text) {
     terminalOutput.textContent += text
@@ -1013,9 +1013,9 @@
   }
 
   async function initTerminal() {
-    if (ptyReady) return
+    if (terminalReady) return
     
-    appendOutput('Initializing terminal...\r\n')
+    appendOutput('Creating shell...\r\n')
     
     try {
       const result = await window.browser.terminal.create()
@@ -1026,16 +1026,17 @@
         return
       }
       
-      ptyReady = true
-      appendOutput('Terminal ready!\r\n')
+      terminalReady = true
+      appendOutput('$ ')
+      terminalInput.focus()
       
       window.browser.terminal.onData((data) => {
         appendOutput(data)
       })
       
       window.browser.terminal.onExit((code) => {
-        appendOutput(`\r\n[Process exited: ${code}]\r\n`)
-        ptyReady = false
+        appendOutput(`\r\n[Shell exited: ${code}]\r\n`)
+        terminalReady = false
       })
     } catch (err) {
       console.error('[Terminal] Error:', err)
@@ -1050,7 +1051,6 @@
     
     if (terminalVisible) {
       initTerminal()
-      setTimeout(() => terminalInput.focus(), 100)
     }
   }
 
@@ -1062,13 +1062,14 @@
   })
 
   terminalInput.addEventListener('keydown', (e) => {
-    if (!ptyReady) return
+    if (!terminalReady) return
     
     if (e.key === 'Enter') {
       e.preventDefault()
+      appendOutput('\r\n')
       const cmd = terminalInput.value
       terminalInput.value = ''
-      window.browser.terminal.input('\r')
+      window.browser.terminal.input(cmd + '\n')
     } else if (e.key === 'Backspace') {
       window.browser.terminal.input('\x7f')
     } else if (e.key === 'ArrowUp') {
@@ -1089,7 +1090,7 @@
   })
   
   terminalInput.addEventListener('input', (e) => {
-    if (!ptyReady) return
+    if (!terminalReady) return
     const newChar = terminalInput.value.slice(-1)
     if (newChar && newChar.charCodeAt(0) >= 32) {
       window.browser.terminal.input(newChar)
