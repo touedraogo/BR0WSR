@@ -304,6 +304,14 @@
     }
     #terminal-panel.visible { display: flex; }
     
+    #terminal-resize-handle {
+      height: 4px;
+      background: var(--border);
+      cursor: ns-resize;
+      flex-shrink: 0;
+    }
+    #terminal-resize-handle:hover { background: var(--green3); }
+    
     #terminal-header {
       display: flex;
       align-items: center;
@@ -615,6 +623,7 @@
 
   <!-- ── TERMINAL ── -->
   <div id="terminal-panel">
+    <div id="terminal-resize-handle"></div>
     <div id="terminal-header">
       <span>⌨ TERMINAL</span>
       <button id="terminal-clear">clear</button>
@@ -1027,6 +1036,35 @@
   if (terminalVisible) {
     terminalPanel.classList.add('visible')
   }
+
+  // ── TERMINAL RESIZE ───────────────────────────────────────────
+  const resizeHandle = document.getElementById('terminal-resize-handle')
+  let isResizing = false
+  let startY = 0
+  let startHeight = 0
+
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true
+    startY = e.clientY
+    startHeight = terminalPanel.offsetHeight
+    document.body.style.cursor = 'ns-resize'
+    document.body.style.userSelect = 'none'
+  })
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return
+    const diff = startY - e.clientY
+    const newHeight = Math.max(100, Math.min(600, startHeight + diff))
+    terminalPanel.style.height = newHeight + 'px'
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  })
 
   // ── SCREENSHOT TO SEARCH ─────────────────────────────────────
   const screenshotOverlay   = document.getElementById('screenshot-overlay')
