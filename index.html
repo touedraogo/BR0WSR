@@ -194,35 +194,44 @@
     }
     #new-tab-btn:hover { border-color: var(--green); color: var(--green); background: var(--dim); box-shadow: var(--glow); }
 
-    /* ── VPN PANEL ── */
+    /* ── FLOATING VPN PANEL ── */
+    #vpn-floater {
+      position: fixed;
+      top: 60px;
+      left: 10px;
+      z-index: 9998;
+    }
     #vpn-panel {
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
+      background: var(--bg2);
+      border: 2px solid var(--green3);
+      border-radius: 4px;
+      min-width: 200px;
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
     }
     #vpn-header {
-      padding: 8px 10px;
+      padding: 8px 12px;
       display: flex;
       align-items: center;
       gap: 8px;
       border-bottom: 1px solid var(--border);
+      background: var(--bg);
     }
     #vpn-dot {
-      width: 8px; height: 8px; border-radius: 50%;
+      width: 10px; height: 10px; border-radius: 50%;
       background: var(--green3);
       flex-shrink: 0;
       transition: background 0.3s, box-shadow 0.3s;
     }
-    #vpn-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    #vpn-dot.connecting { background: #ff9900; box-shadow: 0 0 6px #ff990088; animation: blink 0.8s step-end infinite; }
-    #vpn-status-text { font-size: 9px; color: var(--green3); letter-spacing: 0.1em; }
-    #vpn-status-text.connected { color: var(--green); }
+    #vpn-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    #vpn-dot.connecting { background: #ff9900; box-shadow: 0 0 8px #ff990088; animation: blink 0.8s step-end infinite; }
+    #vpn-status-text { font-size: 10px; color: var(--green3); letter-spacing: 0.1em; }
+    #vpn-status-text.connected { color: var(--green); text-shadow: var(--glow); }
 
     #vpn-controls {
-      padding: 8px 10px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      border-bottom: 1px solid var(--border);
     }
     
     #vpn-select {
@@ -256,15 +265,16 @@
       letter-spacing: 0.05em;
       transition: all 0.1s;
     }
-    #vpn-connect-btn:hover { border-color: var(--green); color: var(--green); }
+    #vpn-connect-btn:hover { border-color: var(--green); color: var(--green); background: var(--dim); }
     #vpn-disconnect-btn:hover { border-color: #ff4444; color: #ff4444; }
     #vpn-connect-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     
     #vpn-info {
       font-size: 9px;
-      color: var(--green3);
+      color: var(--muted);
       text-align: center;
       padding: 4px;
+      border-top: 1px solid var(--border);
     }
     
     #vpn-server { padding: 4px 10px; font-size: 9px; color: var(--muted); }
@@ -594,45 +604,48 @@
   <button id="toggle-terminal" class="nav-btn" title="Toggle Terminal">⌨</button>
 </div>
 
-<div id="main">
-  <div id="sidebar">
-    <div id="sidebar-header">
-      <span>// SESSIONS</span>
-      <button id="pin-btn" title="pin sidebar">
-        <!-- hollow pin (unpinned) -->
-        <svg id="pin-icon-unpinned" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="17" x2="12" y2="22"/>
-          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
-        </svg>
-        <!-- filled pin (pinned) -->
-        <svg id="pin-icon-pinned" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="17" x2="12" y2="22"/>
-          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
-        </svg>
-      </button>
+<!-- ── FLOATING VPN PANEL ── -->
+<div id="vpn-floater">
+  <div id="vpn-panel">
+    <div id="vpn-header">
+      <div id="vpn-dot"></div>
+      <span>VPN</span>&nbsp;<span id="vpn-status-text">OFFLINE</span>
     </div>
-    <div id="tabs"></div>
-    <div id="sidebar-footer">
-      <button id="new-tab-btn">+ new_session</button>
-    </div>
-
-    <div id="vpn-panel">
-      <div id="vpn-header">
-        <div id="vpn-dot"></div>
-        VPN &nbsp;<span id="vpn-status-text">OFFLINE</span>
+    <div id="vpn-controls">
+      <select id="vpn-select">
+        <option value="">-- Select Country --</option>
+      </select>
+      <div id="vpn-actions">
+        <button id="vpn-connect-btn">Connect</button>
+        <button id="vpn-disconnect-btn">Disconnect</button>
       </div>
-      <div id="vpn-controls">
-        <select id="vpn-select">
-          <option value="">-- Select Country --</option>
-        </select>
-        <div id="vpn-actions">
-          <button id="vpn-connect-btn">Connect</button>
-          <button id="vpn-disconnect-btn">Disconnect</button>
-        </div>
-      </div>
-      <div id="vpn-info">NordVPN Browser</div>
     </div>
+    <div id="vpn-info">NordVPN</div>
   </div>
+</div>
+
+<div id="main">
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <span>// SESSIONS</span>
+        <button id="pin-btn" title="pin sidebar">
+          <!-- hollow pin (unpinned) -->
+          <svg id="pin-icon-unpinned" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="17" x2="12" y2="22"/>
+            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+          </svg>
+          <!-- filled pin (pinned) -->
+          <svg id="pin-icon-pinned" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="17" x2="12" y2="22"/>
+            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+          </svg>
+        </button>
+      </div>
+      <div id="tabs"></div>
+      <div id="sidebar-footer">
+        <button id="new-tab-btn">+ new_session</button>
+      </div>
+    </div>
 
   <div id="content">
     <div id="edge-trigger"></div>
