@@ -304,14 +304,6 @@
     }
     #terminal-panel.visible { display: flex; }
     
-    #terminal-resize-handle {
-      height: 4px;
-      background: var(--border);
-      cursor: ns-resize;
-      flex-shrink: 0;
-    }
-    #terminal-resize-handle:hover { background: var(--green3); }
-    
     #terminal-header {
       display: flex;
       align-items: center;
@@ -357,20 +349,27 @@
       background: #040d04;
       border-top: 1px solid #0a2e0a;
       min-height: 44px;
-      max-height: 15%;
+      position: relative;
+      z-index: 10;
     }
     #terminal-input {
       flex: 1;
-      background: transparent;
-      border: none;
-      color: #ff9500;
+      background: rgba(255, 149, 0, 0.08);
+      border: 1px solid #ff950044;
+      color: #ffaa33;
       font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
       font-size: 14px;
       outline: none;
-      caret-color: #ff9500;
-      text-shadow: 0 0 8px #ff950066;
+      caret-color: #ffaa33;
+      padding: 4px 8px;
+      text-shadow: 0 0 10px #ff9500aa;
+      border-radius: 2px;
     }
-    #terminal-input::placeholder { color: #0a2e0a; }
+    #terminal-input:focus {
+      border-color: #ff9500;
+      box-shadow: 0 0 12px #ff950044;
+    }
+    #terminal-input::placeholder { color: #4a3000; }
     
     #terminal-container {
       flex: 1;
@@ -636,7 +635,6 @@
 
   <!-- ── TERMINAL ── -->
   <div id="terminal-panel">
-    <div id="terminal-resize-handle"></div>
     <div id="terminal-header">
       <span>⌨ TERMINAL</span>
       <button id="terminal-clear">clear</button>
@@ -1135,35 +1133,6 @@
   if (terminalVisible) {
     terminalPanel.classList.add('visible')
   }
-
-  // ── TERMINAL RESIZE ───────────────────────────────────────────
-  const resizeHandle = document.getElementById('terminal-resize-handle')
-  let isResizing = false
-  let startY = 0
-  let startHeight = 0
-
-  resizeHandle.addEventListener('mousedown', (e) => {
-    isResizing = true
-    startY = e.clientY
-    startHeight = terminalPanel.offsetHeight
-    document.body.style.cursor = 'ns-resize'
-    document.body.style.userSelect = 'none'
-  })
-
-  document.addEventListener('mousemove', (e) => {
-    if (!isResizing) return
-    const diff = startY - e.clientY
-    const newHeight = Math.max(100, Math.min(600, startHeight + diff))
-    terminalPanel.style.height = newHeight + 'px'
-  })
-
-  document.addEventListener('mouseup', () => {
-    if (isResizing) {
-      isResizing = false
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-  })
 
   // ── SCREENSHOT TO SEARCH ─────────────────────────────────────
   const screenshotOverlay   = document.getElementById('screenshot-overlay')
