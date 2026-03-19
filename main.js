@@ -14,6 +14,10 @@ try {
   console.log('[Terminal] node-pty not available, using fallback shell')
 }
 
+// Force fallback mode for safety
+usePty = false
+console.log('[Terminal] Using fallback shell mode for compatibility')
+
 const COUNTRIES = [
   { code: 'us', name: 'United States', flag: '🇺🇸' },
   { code: 'gb', name: 'United Kingdom', flag: '🇬🇧' },

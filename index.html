@@ -195,10 +195,10 @@
     }
     #new-tab-btn:hover { border-color: var(--green); color: var(--green); background: var(--dim); box-shadow: var(--glow); }
 
-    /* ── FLOATING VPN PANEL ── */
+    /* ── FLOATING VPN PANEL (bottom-left) ── */
     #vpn-floater {
       position: fixed;
-      top: 60px;
+      bottom: 10px;
       left: 10px;
       z-index: 9998;
     }
@@ -304,19 +304,19 @@
       overflow: hidden;
     }
 
-    /* ── TERMINAL ── */
+    /* ── TERMINAL (right side) ── */
     #terminal-panel {
       display: none;
       position: fixed;
-      bottom: 0;
-      left: 0;
+      top: 48px;
       right: 0;
-      height: 300px;
+      bottom: 0;
+      width: 50%;
       background: #020a02;
-      border-top: 3px solid #00ff41;
+      border-left: 3px solid #00ff41;
       flex-direction: column;
-      z-index: 9999;
-      box-shadow: 0 -4px 30px rgba(0, 255, 65, 0.15);
+      z-index: 9997;
+      box-shadow: -4px 0 30px rgba(0, 255, 65, 0.15);
     }
     #terminal-panel.visible { display: flex; }
     
