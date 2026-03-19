@@ -13,8 +13,7 @@
     "@electron/rebuild": "^3.6.0"
   },
   "dependencies": {
-    "@ghostery/adblocker-electron": "^1.34.0",
-    "node-pty": "^1.1.0"
+    "@ghostery/adblocker-electron": "^1.34.0"
   },
   "build": {
     "appId": "com.nordvpn.browser",

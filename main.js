@@ -1,7 +1,6 @@
-const { app, BrowserWindow, ipcMain, session, systemPreferences } = require('electron')
+const { app, BrowserWindow, ipcMain, session, systemPreferences, shell } = require('electron')
 const { ElectronBlocker } = require('@ghostery/adblocker-electron')
-const { exec } = require('child_process')
-const pty = require('node-pty')
+const { exec, spawn } = require('child_process')
 const path = require('path')
 
 const COUNTRIES = [
@@ -51,66 +50,70 @@ ipcMain.handle('auth-fingerprint', async () => {
 
 ipcMain.handle('vpn-countries', () => COUNTRIES)
 
-// ── Terminal execution ────────────────────────────────────────────
-let ptyProcess = null
+// ── Terminal (simple shell execution) ────────────────────────────
+let currentProcess = null
+let shellHistory = []
+let historyIndex = -1
+
+function createShellProcess() {
+  if (currentProcess) {
+    currentProcess.kill()
+  }
+  
+  const shellCmd = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
+  currentProcess = spawn(shellCmd, [], {
+    cwd: process.env.HOME || '/',
+    env: process.env,
+    shell: false
+  })
+  
+  let buffer = ''
+  
+  currentProcess.stdout.on('data', (data) => {
+    buffer += data.toString()
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    lines.forEach(line => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('terminal-data', line + '\r\n')
+      }
+    })
+  })
+  
+  currentProcess.stderr.on('data', (data) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('terminal-data', data.toString())
+    }
+  })
+  
+  currentProcess.on('close', (code) => {
+    if (buffer && win && !win.isDestroyed()) {
+      win.webContents.send('terminal-data', buffer + '\r\n')
+    }
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('terminal-exit', code)
+    }
+    currentProcess = null
+  })
+  
+  return { success: true }
+}
 
 ipcMain.handle('terminal-create', async () => {
-  console.log('[Terminal] Creating PTY...')
-  try {
-    if (ptyProcess) {
-      ptyProcess.kill()
-      ptyProcess = null
-    }
-    
-    const shell = process.env.SHELL || '/bin/bash'
-    console.log('[Terminal] Spawning shell:', shell)
-    
-    ptyProcess = pty.spawn(shell, [], {
-      name: 'xterm-color',
-      cols: 80,
-      rows: 24,
-      cwd: process.env.HOME || '/',
-      env: process.env
-    })
-    
-    console.log('[Terminal] PTY created successfully')
-    
-    ptyProcess.onData((data) => {
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('terminal-data', data)
-      }
-    })
-    
-    ptyProcess.onExit(({ exitCode, signal }) => {
-      console.log('[Terminal] PTY exited:', exitCode, signal)
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('terminal-exit', exitCode)
-      }
-    })
-    
-    return { success: true }
-  } catch (err) {
-    console.error('[Terminal] Error:', err)
-    return { success: false, error: err.message }
-  }
+  console.log('[Terminal] Creating shell...')
+  return createShellProcess()
 })
 
 ipcMain.handle('terminal-input', async (_, data) => {
-  if (ptyProcess) {
-    ptyProcess.write(data)
-  }
-})
-
-ipcMain.handle('terminal-resize', async (_, cols, rows) => {
-  if (ptyProcess) {
-    ptyProcess.resize(cols, rows)
+  if (currentProcess) {
+    currentProcess.stdin.write(data)
   }
 })
 
 ipcMain.handle('terminal-kill', async () => {
-  if (ptyProcess) {
-    ptyProcess.kill()
-    ptyProcess = null
+  if (currentProcess) {
+    currentProcess.kill()
+    currentProcess = null
   }
 })
 
