@@ -69,40 +69,22 @@ ipcMain.handle('vpn-quick-connect', async () => {
   await run(`open "nordvpn://connect"`)
 })
 
-ipcMain.handle('vpn-quick-connect', async () => {
-  await run(`"${VPN_CLI}" connect`)
-})
-
 ipcMain.handle('vpn-reconnect', async () => {
-  await run(`"${VPN_CLI}" reconnect`)
+  await run(`open "nordvpn://disconnect"`)
+  await new Promise(r => setTimeout(r, 1000))
+  await run(`open "nordvpn://connect"`)
 })
 
 ipcMain.handle('vpn-protocol', async () => {
-  const out = await run(`"${VPN_CLI}" settings`)
-  if (out.includes('UDP')) return 'UDP'
-  if (out.includes('TCP')) return 'TCP'
   return 'N/A'
-})
-
-ipcMain.handle('vpn-protocol-set', async (_, protocol) => {
-  if (protocol === 'UDP') {
-    await run(`"${VPN_CLI}" set protocol UDP`)
-  } else {
-    await run(`"${VPN_CLI}" set protocol TCP`)
-  }
-})
-
-ipcMain.handle('vpn-server', async () => {
-  const out = await run(`osascript -e 'tell application "NordVPN" to get server name'`)
-  return out.trim() || null
-})
-
-ipcMain.handle('vpn-protocol', async () => {
-  return 'N/A'  // Not available via URL scheme
 })
 
 ipcMain.handle('vpn-protocol-set', async () => {
   return { status: 'error', message: 'Protocol not available' }
+})
+
+ipcMain.handle('vpn-server', async () => {
+  return null
 })
 
 let win
