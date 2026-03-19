@@ -354,16 +354,17 @@
     #terminal-output {
       flex: 1;
       overflow-y: auto;
-      padding: 8px;
+      padding: 12px;
       font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-      font-size: 13px;
+      font-size: 14px;
       color: #00cc33;
       background: #020a02;
       white-space: pre-wrap;
       word-wrap: break-word;
+      line-height: 1.4;
     }
-    #terminal-output::-webkit-scrollbar { width: 6px; }
-    #terminal-output::-webkit-scrollbar-thumb { background: #0a2e0a; }
+    #terminal-output::-webkit-scrollbar { width: 8px; }
+    #terminal-output::-webkit-scrollbar-thumb { background: #0a2e0a; border-radius: 4px; }
     #terminal-input-row {
       display: flex;
       align-items: center;
@@ -1014,20 +1015,30 @@
   async function initTerminal() {
     if (ptyReady) return
     
+    appendOutput('Initializing terminal...\r\n')
+    
     try {
-      await window.browser.terminal.create()
+      const result = await window.browser.terminal.create()
+      console.log('[Terminal] Create result:', result)
+      
+      if (!result || !result.success) {
+        appendOutput('Error: ' + (result?.error || 'Unknown error') + '\r\n')
+        return
+      }
+      
       ptyReady = true
-      appendOutput('Terminal ready. Type commands below.\r\n')
+      appendOutput('Terminal ready!\r\n')
       
       window.browser.terminal.onData((data) => {
         appendOutput(data)
       })
       
       window.browser.terminal.onExit((code) => {
-        appendOutput(`\r\n[Process exited with code ${code}]\r\n`)
+        appendOutput(`\r\n[Process exited: ${code}]\r\n`)
         ptyReady = false
       })
     } catch (err) {
+      console.error('[Terminal] Error:', err)
       appendOutput('Error: ' + err.message + '\r\n')
     }
   }

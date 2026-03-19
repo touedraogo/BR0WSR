@@ -55,32 +55,44 @@ ipcMain.handle('vpn-countries', () => COUNTRIES)
 let ptyProcess = null
 
 ipcMain.handle('terminal-create', async () => {
-  if (ptyProcess) {
-    ptyProcess.kill()
+  console.log('[Terminal] Creating PTY...')
+  try {
+    if (ptyProcess) {
+      ptyProcess.kill()
+      ptyProcess = null
+    }
+    
+    const shell = process.env.SHELL || '/bin/bash'
+    console.log('[Terminal] Spawning shell:', shell)
+    
+    ptyProcess = pty.spawn(shell, [], {
+      name: 'xterm-color',
+      cols: 80,
+      rows: 24,
+      cwd: process.env.HOME || '/',
+      env: process.env
+    })
+    
+    console.log('[Terminal] PTY created successfully')
+    
+    ptyProcess.onData((data) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('terminal-data', data)
+      }
+    })
+    
+    ptyProcess.onExit(({ exitCode, signal }) => {
+      console.log('[Terminal] PTY exited:', exitCode, signal)
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('terminal-exit', exitCode)
+      }
+    })
+    
+    return { success: true }
+  } catch (err) {
+    console.error('[Terminal] Error:', err)
+    return { success: false, error: err.message }
   }
-  
-  const shell = process.env.SHELL || '/bin/bash'
-  ptyProcess = pty.spawn(shell, [], {
-    name: 'xterm-color',
-    cols: 80,
-    rows: 24,
-    cwd: process.env.HOME,
-    env: process.env
-  })
-  
-  ptyProcess.onData((data) => {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('terminal-data', data)
-    }
-  })
-  
-  ptyProcess.onExit(({ exitCode }) => {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('terminal-exit', exitCode)
-    }
-  })
-  
-  return { success: true }
 })
 
 ipcMain.handle('terminal-input', async (_, data) => {
