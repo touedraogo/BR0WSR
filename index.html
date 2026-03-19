@@ -371,12 +371,6 @@
       background: #040d04;
       border-top: 1px solid #0a2e0a;
     }
-    #terminal-prompt {
-      color: #00ff41;
-      margin-right: 8px;
-      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
-      font-size: 13px;
-    }
     #terminal-input {
       flex: 1;
       background: transparent;
@@ -653,10 +647,9 @@
     </div>
     <div id="terminal-container">
       <div id="terminal-output"></div>
-      <div id="terminal-input-row">
-        <span id="terminal-prompt">$</span>
-        <input id="terminal-input" type="text" placeholder="type command..." autocomplete="off" spellcheck="false" />
-      </div>
+    </div>
+    <div id="terminal-input-row">
+      <input id="terminal-input" type="text" autocomplete="off" spellcheck="false" />
     </div>
   </div>
 </div>
@@ -1058,12 +1051,37 @@
   })
 
   terminalInput.addEventListener('keydown', (e) => {
+    if (!ptyReady) return
+    
     if (e.key === 'Enter') {
+      e.preventDefault()
       const cmd = terminalInput.value
       terminalInput.value = ''
-      if (cmd && ptyReady) {
-        window.browser.terminal.input(cmd + '\r')
-      }
+      window.browser.terminal.input('\r')
+    } else if (e.key === 'Backspace') {
+      window.browser.terminal.input('\x7f')
+    } else if (e.key === 'ArrowUp') {
+      window.browser.terminal.input('\x1b[A')
+    } else if (e.key === 'ArrowDown') {
+      window.browser.terminal.input('\x1b[B')
+    } else if (e.key === 'ArrowLeft') {
+      window.browser.terminal.input('\x1b[D')
+    } else if (e.key === 'ArrowRight') {
+      window.browser.terminal.input('\x1b[C')
+    } else if (e.ctrlKey && e.key === 'c') {
+      window.browser.terminal.input('\x03')
+      terminalInput.value = ''
+    } else if (e.ctrlKey && e.key === 'l') {
+      window.browser.terminal.input('\x0c')
+      terminalInput.value = ''
+    }
+  })
+  
+  terminalInput.addEventListener('input', (e) => {
+    if (!ptyReady) return
+    const newChar = terminalInput.value.slice(-1)
+    if (newChar && newChar.charCodeAt(0) >= 32) {
+      window.browser.terminal.input(newChar)
     }
   })
 
