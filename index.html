@@ -304,16 +304,14 @@
       overflow: hidden;
     }
 
-    /* ── TERMINAL (right side, 1/3 width) ── */
+    /* ── TERMINAL (right side, fit mode) ── */
     #terminal-panel {
       display: none;
       position: fixed;
       top: 48px;
       right: 0;
       bottom: 0;
-      width: 33.333%;
-      max-width: 500px;
-      min-width: 300px;
+      width: 400px;
       background: #020a02;
       border-left: 3px solid #00ff41;
       flex-direction: column;
@@ -1073,10 +1071,6 @@
       term.onData((data) => {
         if (terminalReady) {
           window.browser.terminal.input(data)
-          // Without PTY, shell doesn't echo - manually echo printable chars
-          if (data.length === 1 && data.charCodeAt(0) >= 32 && data.charCodeAt(0) !== 127) {
-            term.write(data)
-          }
         }
       })
       
