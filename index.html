@@ -362,7 +362,31 @@
       white-space: pre-wrap;
       word-wrap: break-word;
       line-height: 1.4;
+      min-height: 0;
     }
+    #terminal-output::-webkit-scrollbar { width: 8px; }
+    #terminal-output::-webkit-scrollbar-thumb { background: #0a2e0a; border-radius: 4px; }
+    
+    #terminal-input-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      background: #040d04;
+      border-top: 1px solid #0a2e0a;
+      min-height: 44px;
+      max-height: 15%;
+    }
+    #terminal-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #00ff00;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+      font-size: 14px;
+      outline: none;
+      caret-color: #00ff00;
+    }
+    #terminal-input::placeholder { color: #0a2e0a; }
     #terminal-output::-webkit-scrollbar { width: 8px; }
     #terminal-output::-webkit-scrollbar-thumb { background: #0a2e0a; border-radius: 4px; }
     #terminal-input-row {
@@ -644,6 +668,7 @@
     <div id="terminal-header">
       <span>⌨ TERMINAL</span>
       <button id="terminal-clear">clear</button>
+      <button id="terminal-kill">kill</button>
       <button id="terminal-close">×</button>
     </div>
     <div id="terminal-container">
@@ -1006,6 +1031,7 @@
 
   let terminalVisible = localStorage.getItem('terminal-visible') === 'true'
   let terminalReady = false
+  let terminalKillBtn
 
   function appendOutput(text) {
     terminalOutput.textContent += text
@@ -1061,33 +1087,74 @@
     terminalOutput.textContent = ''
   })
 
+  terminalKillBtn = document.getElementById('terminal-kill')
+  terminalKillBtn.addEventListener('click', () => {
+    window.browser.terminal.kill()
+    terminalReady = false
+    appendOutput('\r\n[Process killed]\r\n')
+  })
+
   terminalInput.addEventListener('keydown', (e) => {
     if (!terminalReady) return
     
-    e.preventDefault()
-    
     if (e.key === 'Enter') {
+      e.preventDefault()
       appendOutput('\r\n')
       const cmd = terminalInput.value
       terminalInput.value = ''
       window.browser.terminal.input(cmd + '\n')
     } else if (e.key === 'Backspace') {
+      e.preventDefault()
       window.browser.terminal.input('\x7f')
+    } else if (e.key === 'Delete') {
+      e.preventDefault()
+      window.browser.terminal.input('\x1b[3~')
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      window.browser.terminal.input('\x1b')
     } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
       window.browser.terminal.input('\x1b[A')
     } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
       window.browser.terminal.input('\x1b[B')
     } else if (e.key === 'ArrowLeft') {
+      e.preventDefault()
       window.browser.terminal.input('\x1b[D')
     } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
       window.browser.terminal.input('\x1b[C')
-    } else if (e.ctrlKey && e.key === 'c') {
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      window.browser.terminal.input('\t')
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      window.browser.terminal.input('\x1b[H')
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      window.browser.terminal.input('\x1b[F')
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'c') {
+      e.preventDefault()
       window.browser.terminal.input('\x03')
       terminalInput.value = ''
-    } else if (e.ctrlKey && e.key === 'l') {
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault()
       window.browser.terminal.input('\x0c')
+      terminalOutput.textContent = ''
       terminalInput.value = ''
-    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault()
+      window.browser.terminal.input('\x1a')
+      terminalInput.value = ''
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+      e.preventDefault()
+      window.browser.terminal.input('\x04')
+    } else if (e.metaKey && e.key === 'k') {
+      e.preventDefault()
+      terminalOutput.textContent = ''
+      terminalInput.value = ''
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault()
       window.browser.terminal.input(e.key)
     }
   })
