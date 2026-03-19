@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
   <title>BR0WSR - NordVPN Browser</title>
   <style>
     :root {
@@ -348,17 +347,45 @@
     
     #terminal-container {
       flex: 1;
-      padding: 8px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
-    #terminal-container .xterm {
-      height: 100%;
-    }
-    #terminal-container .xterm-viewport {
+    #terminal-output {
+      flex: 1;
       overflow-y: auto;
+      padding: 8px;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      color: #00cc33;
+      background: #020a02;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
-    #terminal-container .xterm-screen {
-      height: 100%;
+    #terminal-output::-webkit-scrollbar { width: 6px; }
+    #terminal-output::-webkit-scrollbar-thumb { background: #0a2e0a; }
+    #terminal-input-row {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      background: #040d04;
+      border-top: 1px solid #0a2e0a;
+    }
+    #terminal-prompt {
+      color: #00ff41;
+      margin-right: 8px;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+      font-size: 13px;
+    }
+    #terminal-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #00cc33;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+      font-size: 13px;
+      outline: none;
+      caret-color: #00ff41;
     }
 
     /* ── HOME SCREEN ── */
@@ -624,7 +651,13 @@
       <button id="terminal-clear">clear</button>
       <button id="terminal-close">×</button>
     </div>
-    <div id="terminal-container"></div>
+    <div id="terminal-container">
+      <div id="terminal-output"></div>
+      <div id="terminal-input-row">
+        <span id="terminal-prompt">$</span>
+        <input id="terminal-input" type="text" placeholder="type command..." autocomplete="off" spellcheck="false" />
+      </div>
+    </div>
   </div>
 </div>
 
@@ -971,83 +1004,39 @@
   // ── TERMINAL ─────────────────────────────────────────────────
   const terminalPanel = document.getElementById('terminal-panel')
   const terminalContainer = document.getElementById('terminal-container')
+  const terminalOutput = document.getElementById('terminal-output')
+  const terminalInput = document.getElementById('terminal-input')
   const toggleTerminalBtn = document.getElementById('toggle-terminal')
   const terminalClearBtn = document.getElementById('terminal-clear')
   const terminalCloseBtn = document.getElementById('terminal-close')
 
   let terminalVisible = localStorage.getItem('terminal-visible') === 'true'
-  let term = null
-  let termFit = null
+  let ptyReady = false
+
+  function appendOutput(text) {
+    terminalOutput.textContent += text
+    terminalOutput.scrollTop = terminalOutput.scrollHeight
+  }
 
   async function initTerminal() {
-    if (term) return
+    if (ptyReady) return
     
-    // Load xterm dynamically
-    const xterm = await import('https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js')
-    const { FitAddon } = await import('https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js')
-    
-    term = new xterm.Terminal({
-      theme: {
-        background: '#020a02',
-        foreground: '#00cc33',
-        cursor: '#00ff41',
-        cursorAccent: '#020a02',
-        selectionBackground: '#00cc3366',
-        black: '#000000',
-        red: '#ff4444',
-        green: '#00ff41',
-        yellow: '#ffff00',
-        blue: '#0088ff',
-        magenta: '#ff00ff',
-        cyan: '#00ffff',
-        white: '#ffffff',
-        brightBlack: '#666666',
-        brightRed: '#ff8888',
-        brightGreen: '#00ff41',
-        brightYellow: '#ffff00',
-        brightBlue: '#0088ff',
-        brightMagenta: '#ff88ff',
-        brightCyan: '#00ffff',
-        brightWhite: '#ffffff'
-      },
-      fontFamily: "'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
-      fontSize: 13,
-      cursorBlink: true,
-      cursorStyle: 'block',
-      allowProposedApi: true
-    })
-    
-    termFit = new FitAddon()
-    term.loadAddon(termFit)
-    term.open(terminalContainer)
-    termFit.fit()
-    
-    // Create PTY on backend
-    await window.browser.terminal.create()
-    
-    // Send terminal input to PTY
-    term.onData((data) => {
-      window.browser.terminal.input(data)
-    })
-    
-    // Receive PTY output
-    window.browser.terminal.onData((data) => {
-      if (term) term.write(data)
-    })
-    
-    window.browser.terminal.onExit((code) => {
-      if (term) term.write('\r\n[Process exited]\r\n')
-    })
-    
-    // Resize PTY when terminal resizes
-    term.onResize(({ cols, rows }) => {
-      window.browser.terminal.resize(cols, rows)
-    })
-    
-    // Handle resize
-    window.addEventListener('resize', () => {
-      if (termFit) termFit.fit()
-    })
+    try {
+      await window.browser.terminal.create()
+      ptyReady = true
+      appendOutput('Terminal ready. Type commands below.\r\n')
+      
+      window.browser.terminal.onData((data) => {
+        appendOutput(data)
+      })
+      
+      window.browser.terminal.onExit((code) => {
+        appendOutput(`\r\n[Process exited with code ${code}]\r\n`)
+        ptyReady = false
+      })
+    } catch (err) {
+      appendOutput('Error: ' + err.message + '\r\n')
+    }
   }
 
   function toggleTerminal() {
@@ -1056,11 +1045,8 @@
     localStorage.setItem('terminal-visible', terminalVisible)
     
     if (terminalVisible) {
-      initTerminal().then(() => {
-        setTimeout(() => {
-          if (termFit) termFit.fit()
-        }, 100)
-      })
+      initTerminal()
+      setTimeout(() => terminalInput.focus(), 100)
     }
   }
 
@@ -1068,7 +1054,17 @@
   terminalCloseBtn.addEventListener('click', toggleTerminal)
 
   terminalClearBtn.addEventListener('click', () => {
-    if (term) term.clear()
+    terminalOutput.textContent = ''
+  })
+
+  terminalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const cmd = terminalInput.value
+      terminalInput.value = ''
+      if (cmd && ptyReady) {
+        window.browser.terminal.input(cmd + '\r')
+      }
+    }
   })
 
   // Restore terminal state
