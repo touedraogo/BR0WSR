@@ -108,10 +108,13 @@ function createFallbackProcess() {
     fallbackProcess = null
   }
 
-  const shellCmd = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash'
-  fallbackProcess = spawn(shellCmd, ['-i'], {
+  // Use script to create a pseudo-TTY for proper terminal formatting
+  const scriptCmd = '/usr/bin/script'
+  const scriptArgs = ['-q', '-e', '-', 'bash', '-i']
+  
+  fallbackProcess = spawn(scriptCmd, scriptArgs, {
     cwd: process.env.HOME || '/',
-    env: process.env,
+    env: { ...process.env, TERM: 'xterm-256color' },
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe']
   })
@@ -135,8 +138,12 @@ function createFallbackProcess() {
     fallbackProcess = null
   })
 
-  console.log('[Terminal] Fallback bash created')
-  return { success: true, shell: 'bash (fallback)' }
+  fallbackProcess.on('error', (err) => {
+    console.error('[Terminal] script error:', err)
+  })
+
+  console.log('[Terminal] Fallback with script PTY created')
+  return { success: true, shell: 'script bash (fallback)' }
 }
 
 ipcMain.handle('terminal-create', async (_, options = {}) => {
