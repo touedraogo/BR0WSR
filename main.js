@@ -3,8 +3,6 @@ const { ElectronBlocker } = require('@cliqz/adblocker-electron')
 const { exec } = require('child_process')
 const path = require('path')
 
-const VPN_CLI = '/Applications/NordVPN.app/Contents/MacOS/Nordvpn'
-
 const COUNTRIES = [
   { code: 'us', name: 'United States', flag: '🇺🇸' },
   { code: 'gb', name: 'United Kingdom', flag: '🇬🇧' },
@@ -53,27 +51,22 @@ ipcMain.handle('auth-fingerprint', async () => {
 ipcMain.handle('vpn-countries', () => COUNTRIES)
 
 ipcMain.handle('vpn-status', async () => {
-  const out = await run(`"${VPN_CLI}" status`)
-  if (out.includes('Connected')) return 'Connected'
-  if (out.includes('Connecting')) return 'Connecting'
-  if (out.includes('Disconnecting')) return 'Disconnecting'
+  const out = await run(`osascript -e 'tell application "NordVPN" to get connected'`)
+  if (out.trim() === 'true') return 'Connected'
   return 'Disconnected'
 })
 
 ipcMain.handle('vpn-connect', async (_, countryCode) => {
-  // Kill any existing NordVPN process first
-  await run('pkill -9 -f "NordVPN"')
-  await new Promise(r => setTimeout(r, 500))
-  
-  if (countryCode) {
-    await run(`"${VPN_CLI}" connect ${countryCode}`)
-  } else {
-    await run(`"${VPN_CLI}" connect`)
-  }
+  // Use NordVPN URL scheme to connect
+  await run(`open "nordvpn://connect?country=${countryCode}"`)
 })
 
 ipcMain.handle('vpn-disconnect', async () => {
-  await run(`"${VPN_CLI}" disconnect`)
+  await run(`open "nordvpn://disconnect"`)
+})
+
+ipcMain.handle('vpn-quick-connect', async () => {
+  await run(`open "nordvpn://connect"`)
 })
 
 ipcMain.handle('vpn-quick-connect', async () => {
@@ -100,14 +93,16 @@ ipcMain.handle('vpn-protocol-set', async (_, protocol) => {
 })
 
 ipcMain.handle('vpn-server', async () => {
-  const out = await run(`"${VPN_CLI}" status`)
-  const lines = out.split('\n')
-  for (const line of lines) {
-    if (line.includes('Server:')) {
-      return line.split('Server:')[1].trim()
-    }
-  }
-  return null
+  const out = await run(`osascript -e 'tell application "NordVPN" to get server name'`)
+  return out.trim() || null
+})
+
+ipcMain.handle('vpn-protocol', async () => {
+  return 'N/A'  // Not available via URL scheme
+})
+
+ipcMain.handle('vpn-protocol-set', async () => {
+  return { status: 'error', message: 'Protocol not available' }
 })
 
 let win
