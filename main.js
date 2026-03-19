@@ -108,11 +108,12 @@ function createFallbackProcess() {
     fallbackProcess = null
   }
 
-  const shellCmd = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
-  fallbackProcess = spawn(shellCmd, [], {
+  const shellCmd = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash'
+  fallbackProcess = spawn(shellCmd, ['-i'], {
     cwd: process.env.HOME || '/',
     env: process.env,
-    shell: false
+    shell: false,
+    stdio: ['pipe', 'pipe', 'pipe']
   })
 
   fallbackProcess.stdout.on('data', (data) => {
@@ -134,8 +135,8 @@ function createFallbackProcess() {
     fallbackProcess = null
   })
 
-  console.log('[Terminal] Fallback shell created')
-  return { success: true, shell: 'sh (fallback)' }
+  console.log('[Terminal] Fallback bash created')
+  return { success: true, shell: 'bash (fallback)' }
 }
 
 ipcMain.handle('terminal-create', async (_, options = {}) => {

@@ -1065,6 +1065,10 @@
       term.onData((data) => {
         if (terminalReady) {
           window.browser.terminal.input(data)
+          // Without PTY, shell doesn't echo - manually echo printable chars
+          if (data.length === 1 && data.charCodeAt(0) >= 32 && data.charCodeAt(0) !== 127) {
+            term.write(data)
+          }
         }
       })
       
