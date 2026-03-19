@@ -296,12 +296,16 @@
     /* ── TERMINAL ── */
     #terminal-panel {
       display: none;
-      height: 200px;
-      background: var(--bg2);
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 300px;
+      background: #020a02;
+      border-top: 3px solid #00ff41;
       flex-direction: column;
-      overflow: hidden;
+      z-index: 9999;
+      box-shadow: 0 -4px 30px rgba(0, 255, 65, 0.15);
     }
     #terminal-panel.visible { display: flex; }
     
@@ -330,25 +334,47 @@
     #terminal-output::-webkit-scrollbar { width: 8px; }
     #terminal-output::-webkit-scrollbar-thumb { background: #0a2e0a; border-radius: 4px; }
     
+    #terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: #0a1a0a;
+      border-bottom: 2px solid #00ff41;
+      font-size: 12px;
+      color: #00ff41;
+      letter-spacing: 0.1em;
+      font-weight: bold;
+    }
     #terminal-header button {
       background: none;
-      border: none;
-      color: var(--green3);
+      border: 1px solid #00ff4144;
+      color: #00ff41;
       cursor: pointer;
-      font-size: 12px;
-      padding: 2px 6px;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 3px;
     }
-    #terminal-header button:hover { color: var(--green); }
+    #terminal-header button:hover { 
+      background: #00ff4122;
+      box-shadow: 0 0 10px #00ff4144;
+    }
     
     #terminal-input-row {
       display: flex;
       align-items: center;
-      padding: 8px 12px;
-      background: #040d04;
+      padding: 10px 16px;
+      background: #0a1a0a;
       border-top: 2px solid #ff9500;
-      min-height: 44px;
+      min-height: 50px;
       position: relative;
       z-index: 100;
+    }
+    #terminal-input-row::before {
+      content: '$';
+      color: #00ff41;
+      font-weight: bold;
+      margin-right: 10px;
     }
     #terminal-input {
       flex: 1;
@@ -640,6 +666,8 @@
     </div>
   </div>
 </div>
+
+<div id="terminal-floater"></div>
 
 <script>
   const urlBar    = document.getElementById('url-bar')
