@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, systemPreferences } = require('electron')
 const { ElectronBlocker } = require('@cliqz/adblocker-electron')
 const { exec } = require('child_process')
+const pty = require('node-pty')
 const path = require('path')
 
 const COUNTRIES = [
@@ -61,13 +62,68 @@ ipcMain.handle('vpn-status', async () => {
   }
 })
 
-// ── Terminal execution ──────────────────────────────────────────
-ipcMain.handle('terminal-exec', async (_, cmd) => {
+// ── Terminal execution ────────────────────────────────────────────
+let ptyProcess = null
+
+ipcMain.handle('terminal-create', async () => {
+  if (ptyProcess) {
+    ptyProcess.kill()
+  }
+  
+  const shell = process.env.SHELL || '/bin/bash'
+  ptyProcess = pty.spawn(shell, [], {
+    name: 'xterm-color',
+    cols: 80,
+    rows: 24,
+    cwd: process.env.HOME,
+    env: process.env
+  })
+  
+  ptyProcess.onData((data) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('terminal-data', data)
+    }
+  })
+  
+  ptyProcess.onExit(({ exitCode }) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('terminal-exit', exitCode)
+    }
+  })
+  
+  return { success: true }
+})
+
+ipcMain.handle('terminal-input', async (_, data) => {
+  if (ptyProcess) {
+    ptyProcess.write(data)
+  }
+})
+
+ipcMain.handle('terminal-resize', async (_, cols, rows) => {
+  if (ptyProcess) {
+    ptyProcess.resize(cols, rows)
+  }
+})
+
+ipcMain.handle('terminal-kill', async () => {
+  if (ptyProcess) {
+    ptyProcess.kill()
+    ptyProcess = null
+  }
+})
+
+// ── VPN status check (simplified) ─────────────────────────────
+ipcMain.handle('vpn-status', async () => {
   try {
-    const out = await run(cmd)
-    return { success: true, output: out }
+    const out = await new Promise(resolve => {
+      exec(`osascript -e 'tell application "NordVPN" to get connected' 2>/dev/null`, (err, stdout) => {
+        resolve(err ? '' : stdout.trim())
+      })
+    })
+    return out === 'true' ? 'Connected' : 'Disconnected'
   } catch (err) {
-    return { success: false, error: err.message }
+    return 'Disconnected'
   }
 })
 

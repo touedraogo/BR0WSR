@@ -20,6 +20,11 @@ contextBridge.exposeInMainWorld('browser', {
     capture: (tabId) => ipcRenderer.invoke('screenshot-capture', tabId),
   },
   terminal: {
-    exec: (cmd) => ipcRenderer.invoke('terminal-exec', cmd),
+    create: ()     => ipcRenderer.invoke('terminal-create'),
+    input:  (data) => ipcRenderer.invoke('terminal-input', data),
+    resize: (c, r) => ipcRenderer.invoke('terminal-resize', c, r),
+    kill:   ()     => ipcRenderer.invoke('terminal-kill'),
+    onData: (cb)   => ipcRenderer.on('terminal-data', (_, data) => cb(data)),
+    onExit: (cb)   => ipcRenderer.on('terminal-exit', (_, code) => cb(code)),
   }
 })

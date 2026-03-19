@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>BR0WSR</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+  <title>BR0WSR - NordVPN Browser</title>
   <style>
     :root {
       --green:   #00ff41;
@@ -345,26 +346,20 @@
     #terminal-output::-webkit-scrollbar { width: 4px; }
     #terminal-output::-webkit-scrollbar-thumb { background: var(--green3); }
     
-    #terminal-input-row {
-      display: flex;
-      align-items: center;
-      padding: 6px 10px;
-      background: var(--bg);
-      border-top: 1px solid var(--border);
-      gap: 8px;
-    }
-    #terminal-prompt { color: var(--green); font-size: 12px; }
-    #terminal-input {
+    #terminal-container {
       flex: 1;
-      background: none;
-      border: none;
-      color: var(--green);
-      font-family: var(--mono);
-      font-size: 11px;
-      outline: none;
-      caret-color: var(--green);
+      padding: 8px;
+      overflow: hidden;
     }
-    #terminal-input::placeholder { color: var(--muted); }
+    #terminal-container .xterm {
+      height: 100%;
+    }
+    #terminal-container .xterm-viewport {
+      overflow-y: auto;
+    }
+    #terminal-container .xterm-screen {
+      height: 100%;
+    }
 
     /* ── HOME SCREEN ── */
     #home {
@@ -629,11 +624,7 @@
       <button id="terminal-clear">clear</button>
       <button id="terminal-close">×</button>
     </div>
-    <div id="terminal-output"></div>
-    <div id="terminal-input-row">
-      <span id="terminal-prompt">$</span>
-      <input id="terminal-input" type="text" placeholder="command..." autocomplete="off" spellcheck="false" />
-    </div>
+    <div id="terminal-container"></div>
   </div>
 </div>
 
@@ -979,57 +970,105 @@
 
   // ── TERMINAL ─────────────────────────────────────────────────
   const terminalPanel = document.getElementById('terminal-panel')
-  const terminalOutput = document.getElementById('terminal-output')
-  const terminalInput = document.getElementById('terminal-input')
+  const terminalContainer = document.getElementById('terminal-container')
   const toggleTerminalBtn = document.getElementById('toggle-terminal')
   const terminalClearBtn = document.getElementById('terminal-clear')
   const terminalCloseBtn = document.getElementById('terminal-close')
 
   let terminalVisible = localStorage.getItem('terminal-visible') === 'true'
+  let term = null
+  let termFit = null
+
+  async function initTerminal() {
+    if (term) return
+    
+    // Load xterm dynamically
+    const xterm = await import('https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js')
+    const { FitAddon } = await import('https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js')
+    
+    term = new xterm.Terminal({
+      theme: {
+        background: '#020a02',
+        foreground: '#00cc33',
+        cursor: '#00ff41',
+        cursorAccent: '#020a02',
+        selectionBackground: '#00cc3366',
+        black: '#000000',
+        red: '#ff4444',
+        green: '#00ff41',
+        yellow: '#ffff00',
+        blue: '#0088ff',
+        magenta: '#ff00ff',
+        cyan: '#00ffff',
+        white: '#ffffff',
+        brightBlack: '#666666',
+        brightRed: '#ff8888',
+        brightGreen: '#00ff41',
+        brightYellow: '#ffff00',
+        brightBlue: '#0088ff',
+        brightMagenta: '#ff88ff',
+        brightCyan: '#00ffff',
+        brightWhite: '#ffffff'
+      },
+      fontFamily: "'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+      fontSize: 13,
+      cursorBlink: true,
+      cursorStyle: 'block',
+      allowProposedApi: true
+    })
+    
+    termFit = new FitAddon()
+    term.loadAddon(termFit)
+    term.open(terminalContainer)
+    termFit.fit()
+    
+    // Create PTY on backend
+    await window.browser.terminal.create()
+    
+    // Send terminal input to PTY
+    term.onData((data) => {
+      window.browser.terminal.input(data)
+    })
+    
+    // Receive PTY output
+    window.browser.terminal.onData((data) => {
+      if (term) term.write(data)
+    })
+    
+    window.browser.terminal.onExit((code) => {
+      if (term) term.write('\r\n[Process exited]\r\n')
+    })
+    
+    // Resize PTY when terminal resizes
+    term.onResize(({ cols, rows }) => {
+      window.browser.terminal.resize(cols, rows)
+    })
+    
+    // Handle resize
+    window.addEventListener('resize', () => {
+      if (termFit) termFit.fit()
+    })
+  }
 
   function toggleTerminal() {
     terminalVisible = !terminalVisible
     terminalPanel.classList.toggle('visible', terminalVisible)
     localStorage.setItem('terminal-visible', terminalVisible)
-  }
-
-  function appendTerminalOutput(text, type = 'info') {
-    const line = document.createElement('div')
-    line.textContent = text
-    if (type === 'error') line.style.color = '#ff4444'
-    if (type === 'success') line.style.color = '#00ff00'
-    terminalOutput.appendChild(line)
-    terminalOutput.scrollTop = terminalOutput.scrollHeight
+    
+    if (terminalVisible) {
+      initTerminal().then(() => {
+        setTimeout(() => {
+          if (termFit) termFit.fit()
+        }, 100)
+      })
+    }
   }
 
   toggleTerminalBtn.addEventListener('click', toggleTerminal)
   terminalCloseBtn.addEventListener('click', toggleTerminal)
 
   terminalClearBtn.addEventListener('click', () => {
-    terminalOutput.innerHTML = ''
-  })
-
-  terminalInput.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter' && terminalInput.value.trim()) {
-      const cmd = terminalInput.value.trim()
-      appendTerminalOutput('$ ' + cmd)
-      terminalInput.value = ''
-      
-      try {
-        const result = await window.browser.terminal.exec(cmd)
-        if (result.success) {
-          if (result.output) {
-            appendTerminalOutput(result.output)
-          } else {
-            appendTerminalOutput('(no output)', 'info')
-          }
-        } else {
-          appendTerminalOutput('Error: ' + result.error, 'error')
-        }
-      } catch (err) {
-        appendTerminalOutput('Error: ' + err.message, 'error')
-      }
-    }
+    if (term) term.clear()
   })
 
   // Restore terminal state
