@@ -304,14 +304,16 @@
       overflow: hidden;
     }
 
-    /* ── TERMINAL (right side) ── */
+    /* ── TERMINAL (right side, 1/3 width) ── */
     #terminal-panel {
       display: none;
       position: fixed;
       top: 48px;
       right: 0;
       bottom: 0;
-      width: 50%;
+      width: 33.333%;
+      max-width: 500px;
+      min-width: 300px;
       background: #020a02;
       border-left: 3px solid #00ff41;
       flex-direction: column;
@@ -329,16 +331,22 @@
     
     #xterm-container {
       flex: 1;
-      padding: 8px;
+      padding: 0;
       background: #020a02;
+      overflow: hidden;
     }
     
     #xterm-container .xterm {
       height: 100%;
+      padding: 8px;
     }
     
     #xterm-container .xterm-viewport {
       background: #020a02 !important;
+    }
+    
+    #xterm-container .xterm-screen {
+      height: 100%;
     }
     
     #terminal-header {
