@@ -1006,7 +1006,6 @@
 
   let terminalVisible = localStorage.getItem('terminal-visible') === 'true'
   let terminalReady = false
-  let inputLocked = false
 
   function appendOutput(text) {
     terminalOutput.textContent += text
@@ -1065,14 +1064,13 @@
   terminalInput.addEventListener('keydown', (e) => {
     if (!terminalReady) return
     
+    e.preventDefault()
+    
     if (e.key === 'Enter') {
-      e.preventDefault()
       appendOutput('\r\n')
       const cmd = terminalInput.value
       terminalInput.value = ''
       window.browser.terminal.input(cmd + '\n')
-      inputLocked = true
-      setTimeout(() => inputLocked = false, 50)
     } else if (e.key === 'Backspace') {
       window.browser.terminal.input('\x7f')
     } else if (e.key === 'ArrowUp') {
@@ -1086,25 +1084,11 @@
     } else if (e.ctrlKey && e.key === 'c') {
       window.browser.terminal.input('\x03')
       terminalInput.value = ''
-      inputLocked = true
-      setTimeout(() => inputLocked = false, 50)
     } else if (e.ctrlKey && e.key === 'l') {
       window.browser.terminal.input('\x0c')
       terminalInput.value = ''
-      inputLocked = true
-      setTimeout(() => inputLocked = false, 50)
     } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       window.browser.terminal.input(e.key)
-      inputLocked = true
-      setTimeout(() => inputLocked = false, 50)
-    }
-  })
-  
-  terminalInput.addEventListener('input', (e) => {
-    if (!terminalReady || inputLocked) return
-    const newChar = terminalInput.value.slice(-1)
-    if (newChar && newChar.charCodeAt(0) >= 32) {
-      window.browser.terminal.input(newChar)
     }
   })
 
