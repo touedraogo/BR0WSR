@@ -51,9 +51,24 @@ ipcMain.handle('auth-fingerprint', async () => {
 ipcMain.handle('vpn-countries', () => COUNTRIES)
 
 ipcMain.handle('vpn-status', async () => {
-  const out = await run(`osascript -e 'tell application "NordVPN" to get connected'`)
-  if (out.trim() === 'true') return 'Connected'
-  return 'Disconnected'
+  try {
+    const out = await run(`osascript -e 'tell application "NordVPN" to get connected' 2>/dev/null`)
+    if (out.trim() === 'true') return 'Connected'
+    return 'Disconnected'
+  } catch (err) {
+    console.log('[VPN] Status check error:', err)
+    return 'Disconnected'
+  }
+})
+
+// ── Terminal execution ──────────────────────────────────────────
+ipcMain.handle('terminal-exec', async (_, cmd) => {
+  try {
+    const out = await run(cmd)
+    return { success: true, output: out }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
 })
 
 ipcMain.handle('vpn-connect', async (_, countryCode) => {

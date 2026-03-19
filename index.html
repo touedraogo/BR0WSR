@@ -73,6 +73,24 @@
     #url-bar:focus { border-color: var(--green); box-shadow: var(--glow); }
     #url-bar::placeholder { color: var(--muted); }
 
+    /* ── NAV BUTTONS ── */
+    .nav-btn {
+      background: none;
+      border: 1px solid var(--green3);
+      color: var(--green3);
+      font-size: 14px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-app-region: no-drag;
+      transition: all 0.1s;
+    }
+    .nav-btn:hover { border-color: var(--green); color: var(--green); }
+    .nav-btn:active { background: var(--dim); }
+
     /* ── MAIN ROW ── */
     #main {
       display: flex;
@@ -272,7 +290,73 @@
       flex: 1;
       position: relative;
       background: var(--bg);
+      overflow: hidden;
     }
+
+    /* ── TERMINAL ── */
+    #terminal-panel {
+      display: none;
+      height: 200px;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      flex-direction: column;
+    }
+    #terminal-panel.visible { display: flex; }
+    
+    #terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 10px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--green3);
+      letter-spacing: 0.1em;
+    }
+    #terminal-header button {
+      background: none;
+      border: none;
+      color: var(--green3);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 6px;
+    }
+    #terminal-header button:hover { color: var(--green); }
+    
+    #terminal-output {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--green);
+      white-space: pre-wrap;
+    }
+    #terminal-output::-webkit-scrollbar { width: 4px; }
+    #terminal-output::-webkit-scrollbar-thumb { background: var(--green3); }
+    
+    #terminal-input-row {
+      display: flex;
+      align-items: center;
+      padding: 6px 10px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      gap: 8px;
+    }
+    #terminal-prompt { color: var(--green); font-size: 12px; }
+    #terminal-input {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 11px;
+      outline: none;
+      caret-color: var(--green);
+    }
+    #terminal-input::placeholder { color: var(--muted); }
 
     /* ── HOME SCREEN ── */
     #home {
@@ -466,7 +550,11 @@
 </div>
 
 <div id="toolbar">
+  <button id="nav-back" class="nav-btn" title="Back">←</button>
+  <button id="nav-forward" class="nav-btn" title="Forward">→</button>
+  <button id="nav-reload" class="nav-btn" title="Reload">⟳</button>
   <input id="url-bar" type="text" placeholder="search or enter url..." autocomplete="off" spellcheck="false" />
+  <button id="toggle-terminal" class="nav-btn" title="Toggle Terminal">⌨</button>
 </div>
 
 <div id="main">
@@ -523,6 +611,20 @@
       <div id="home-hint">[ ENTER ] execute &nbsp;&nbsp; [ CMD+T ] new session &nbsp;&nbsp; [ CMD+W ] close</div>
     </div>
     <!-- webview wrappers injected here by JS -->
+  </div>
+
+  <!-- ── TERMINAL ── -->
+  <div id="terminal-panel">
+    <div id="terminal-header">
+      <span>⌨ TERMINAL</span>
+      <button id="terminal-clear">clear</button>
+      <button id="terminal-close">×</button>
+    </div>
+    <div id="terminal-output"></div>
+    <div id="terminal-input-row">
+      <span id="terminal-prompt">$</span>
+      <input id="terminal-input" type="text" placeholder="command..." autocomplete="off" spellcheck="false" />
+    </div>
   </div>
 </div>
 
@@ -780,9 +882,14 @@
   }
 
   async function vpnUpdateStatus() {
-    const status = await window.browser.vpn.status()
-    vpnConnected = status === 'Connected'
-    vpnConnecting = status === 'Connecting'
+    try {
+      const status = await window.browser.vpn.status()
+      vpnConnected = status === 'Connected'
+      vpnConnecting = status === 'Connecting'
+    } catch (err) {
+      vpnConnected = false
+      vpnConnecting = false
+    }
 
     vpnDot.className = vpnConnected ? 'connected' : vpnConnecting ? 'connecting' : ''
     vpnStatusText.className = vpnConnected ? 'connected' : ''
@@ -834,6 +941,92 @@
 
   vpnInit()
   setInterval(vpnUpdateStatus, 10000)
+
+  // ── NAVIGATION BUTTONS ────────────────────────────────────────
+  const navBackBtn = document.getElementById('nav-back')
+  const navForwardBtn = document.getElementById('nav-forward')
+  const navReloadBtn = document.getElementById('nav-reload')
+
+  navBackBtn.addEventListener('click', () => {
+    const meta = tabMeta[activeId]
+    if (meta && meta.wv.canGoBack()) {
+      meta.wv.goBack()
+    }
+  })
+
+  navForwardBtn.addEventListener('click', () => {
+    const meta = tabMeta[activeId]
+    if (meta && meta.wv.canGoForward()) {
+      meta.wv.goForward()
+    }
+  })
+
+  navReloadBtn.addEventListener('click', () => {
+    const meta = tabMeta[activeId]
+    if (meta) {
+      meta.wv.reload()
+    }
+  })
+
+  // ── TERMINAL ─────────────────────────────────────────────────
+  const terminalPanel = document.getElementById('terminal-panel')
+  const terminalOutput = document.getElementById('terminal-output')
+  const terminalInput = document.getElementById('terminal-input')
+  const toggleTerminalBtn = document.getElementById('toggle-terminal')
+  const terminalClearBtn = document.getElementById('terminal-clear')
+  const terminalCloseBtn = document.getElementById('terminal-close')
+
+  let terminalVisible = localStorage.getItem('terminal-visible') === 'true'
+
+  function toggleTerminal() {
+    terminalVisible = !terminalVisible
+    terminalPanel.classList.toggle('visible', terminalVisible)
+    localStorage.setItem('terminal-visible', terminalVisible)
+  }
+
+  function appendTerminalOutput(text, type = 'info') {
+    const line = document.createElement('div')
+    line.textContent = text
+    if (type === 'error') line.style.color = '#ff4444'
+    if (type === 'success') line.style.color = '#00ff00'
+    terminalOutput.appendChild(line)
+    terminalOutput.scrollTop = terminalOutput.scrollHeight
+  }
+
+  toggleTerminalBtn.addEventListener('click', toggleTerminal)
+  terminalCloseBtn.addEventListener('click', toggleTerminal)
+
+  terminalClearBtn.addEventListener('click', () => {
+    terminalOutput.innerHTML = ''
+  })
+
+  terminalInput.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && terminalInput.value.trim()) {
+      const cmd = terminalInput.value.trim()
+      appendTerminalOutput('$ ' + cmd)
+      terminalInput.value = ''
+      
+      try {
+        const result = await window.browser.terminal.exec(cmd)
+        if (result.success) {
+          if (result.output) {
+            appendTerminalOutput(result.output)
+          } else {
+            appendTerminalOutput('(no output)', 'info')
+          }
+        } else {
+          appendTerminalOutput('Error: ' + result.error, 'error')
+        }
+      } catch (err) {
+        appendTerminalOutput('Error: ' + err.message, 'error')
+      }
+    }
+  })
+
+  // Restore terminal state
+  if (terminalVisible) {
+    terminalPanel.classList.add('visible')
+  }
 
   // ── SCREENSHOT TO SEARCH ─────────────────────────────────────
   const screenshotOverlay   = document.getElementById('screenshot-overlay')

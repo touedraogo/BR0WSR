@@ -18,5 +18,8 @@ contextBridge.exposeInMainWorld('browser', {
   },
   screenshot: {
     capture: (tabId) => ipcRenderer.invoke('screenshot-capture', tabId),
+  },
+  terminal: {
+    exec: (cmd) => ipcRenderer.invoke('terminal-exec', cmd),
   }
 })
