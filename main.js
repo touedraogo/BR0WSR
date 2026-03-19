@@ -1,5 +1,5 @@
 const { app, BrowserWindow, ipcMain, session, systemPreferences, shell } = require('electron')
-const { ElectronBlocker } = require('@ghostery/adblocker-electron')
+const { ElectronBlocker } = require('@cliqz/adblocker-electron')
 const { exec, spawn } = require('child_process')
 const path = require('path')
 
