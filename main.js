@@ -256,7 +256,7 @@ app.whenReady().then(() => {
   win.loadFile('index.html')
 
   // Sites with NO ad-blocking (full access)
-  const NO_BLOCK_DOMAINS = [
+  const FULL_ACCESS_DOMAINS = [
     'x.com',
     'twitter.com',
     'x.ai',
@@ -267,18 +267,19 @@ app.whenReady().then(() => {
     'github.com',
     'duck.ai',
     'search.brave.com',
-    'accounts.x.ai',
     'abs.twimg.com',
-    'payments.x.com',
-    'money.x.com'
+    'twimg.com',
+    'appsflyersdk.com',
+    'stripe.com',
+    'arkoselabs.com',
+    'recaptcha.net'
   ]
 
-  // Check if URL should have full access
   function shouldBypassBlocker(url) {
     try {
       const urlObj = new URL(url)
       const host = urlObj.hostname.replace(/^www\./, '')
-      return NO_BLOCK_DOMAINS.some(domain => 
+      return FULL_ACCESS_DOMAINS.some(domain => 
         host === domain || host.endsWith('.' + domain)
       )
     } catch {
@@ -286,34 +287,14 @@ app.whenReady().then(() => {
     }
   }
 
-  ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).then(blocker => {
-    // Disable blocker for sensitive domains using session partition
-    const partition = session.fromPartition('persist:no-block')
-    
-    // Bypass blocker entirely for sensitive domains
-    session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
-      if (shouldBypassBlocker(details.url)) {
-        callback({ cancel: false })
-      } else {
-        callback({ cancel: blocker.shouldBlock(details.url) })
-      }
-    })
-    
-    // Also bypass CSP modifications for sensitive domains
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      if (shouldBypassBlocker(details.url)) {
-        callback({})
-        return
-      }
-      callback({})
-    })
-    
-    blocker.enableBlockingInSession(session.defaultSession)
-    app.on('session-created', s => blocker.enableBlockingInSession(s))
-    console.log('[blocker] active (bypassed for sensitive sites)')
-  }).catch(err => {
-    console.log('[blocker] disabled:', err.message)
-  })
+  // Don't load ad blocker at all for now - it interferes with OAuth flows
+  // electron-blocker can be re-enabled later with proper configuration
+  console.log('[blocker] disabled for compatibility')
+  
+  // Optional: enable ad blocker later with:
+  // ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).then(blocker => {
+  //   blocker.enableBlockingInSession(session.defaultSession)
+  // }).catch(err => console.log('[blocker] error:', err.message))
 })
 
 ipcMain.handle('screenshot-capture', async () => {
