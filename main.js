@@ -259,6 +259,7 @@ app.whenReady().then(() => {
   const BLOCKER_WHITELIST = [
     'x.com',
     'twitter.com',
+    'x.ai',
     'grok.com',
     'grok.ai',
     'grokipedia.com',
@@ -266,15 +267,18 @@ app.whenReady().then(() => {
   ]
 
   ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).then(blocker => {
-    // Disable blocker for whitelisted domains
+    // Completely disable blocker for whitelisted domains
     session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
-      const url = new URL(details.url)
-      const host = url.hostname.replace(/^www\./, '')
-      if (BLOCKER_WHITELIST.some(domain => host.endsWith(domain))) {
-        callback({ cancel: false })
-      } else {
-        callback({ cancel: blocker.shouldBlock(details.url) })
+      const urlObj = details.url.startsWith('http') ? new URL(details.url) : null
+      if (urlObj) {
+        const host = urlObj.hostname.replace(/^www\./, '')
+        if (BLOCKER_WHITELIST.some(domain => host === domain || host.endsWith('.' + domain))) {
+          callback({ cancel: false })
+          return
+        }
       }
+      const cancel = blocker.shouldBlock(details.url)
+      callback({ cancel })
     })
     blocker.enableBlockingInSession(session.defaultSession)
     app.on('session-created', s => blocker.enableBlockingInSession(s))
