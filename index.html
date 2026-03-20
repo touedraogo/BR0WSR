@@ -195,48 +195,21 @@
     }
     #new-tab-btn:hover { border-color: var(--green); color: var(--green); background: var(--dim); box-shadow: var(--glow); }
 
-    /* ── FLOATING VPN PANEL ── */
+    /* ── FLOATING VPN PANEL (hidden until login) ── */
     #vpn-floater {
       position: fixed;
       bottom: 10px;
       left: 10px;
       z-index: 100;
+      display: none;
+    }
+    #vpn-floater.visible {
+      display: block;
     }
     #vpn-panel {
       background: var(--bg2);
       border: 2px solid var(--green3);
       border-radius: 4px;
-      min-width: 200px;
-      box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
-    }
-    
-    #vpn-floater {
-      position: fixed;
-      top: 48px;
-      left: 0;
-      bottom: 0;
-      z-index: 99998;
-      transform: translateX(-100%);
-      transition: transform 0.2s ease;
-      pointer-events: none;
-    }
-    #vpn-floater.open {
-      transform: translateX(0);
-      pointer-events: all;
-    }
-    #vpn-floater:hover {
-      transform: translateX(0);
-      pointer-events: all;
-    }
-    #vpn-panel {
-      position: absolute;
-      top: 50%;
-      left: 0;
-      transform: translateY(-50%);
-      background: var(--bg2);
-      border: 2px solid var(--green3);
-      border-left: none;
-      border-radius: 0 8px 8px 0;
       min-width: 200px;
       box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
     }
@@ -1392,10 +1365,12 @@
   const lockScreen   = document.getElementById('lock-screen')
   const fpContainer  = document.getElementById('fp-container')
   const lockStatus   = document.getElementById('lock-status')
+  const vpnFloater   = document.getElementById('vpn-floater')
   let fpBusy = false
 
   function unlockBrowser() {
     lockScreen.classList.add('hidden')
+    vpnFloater.classList.add('visible')
     setTimeout(() => { lockScreen.style.display = 'none'; homeInput.focus() }, 420)
   }
 
@@ -1434,8 +1409,10 @@
     if (available) {
       setTimeout(attemptFingerprint, 300)
     } else {
-      fpContainer.className = 'error'
-      lockStatus.textContent = 'touch id not available on this device'
+      // No fingerprint available - show VPN panel and allow access
+      vpnFloater.classList.add('visible')
+      lockScreen.style.display = 'none'
+      homeInput.focus()
     }
   })
 </script>
