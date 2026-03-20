@@ -255,10 +255,30 @@ app.whenReady().then(() => {
 
   win.loadFile('index.html')
 
+  // Whitelist for sites that need full access
+  const BLOCKER_WHITELIST = [
+    'x.com',
+    'twitter.com',
+    'grok.com',
+    'grok.ai',
+    'grokipedia.com',
+    'macclaw.local'
+  ]
+
   ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).then(blocker => {
+    // Disable blocker for whitelisted domains
+    session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+      const url = new URL(details.url)
+      const host = url.hostname.replace(/^www\./, '')
+      if (BLOCKER_WHITELIST.some(domain => host.endsWith(domain))) {
+        callback({ cancel: false })
+      } else {
+        callback({ cancel: blocker.shouldBlock(details.url) })
+      }
+    })
     blocker.enableBlockingInSession(session.defaultSession)
     app.on('session-created', s => blocker.enableBlockingInSession(s))
-    console.log('[blocker] active')
+    console.log('[blocker] active (with whitelist)')
   }).catch(err => console.error('[blocker] error:', err))
 })
 
