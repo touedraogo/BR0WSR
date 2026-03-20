@@ -195,15 +195,19 @@
     }
     #new-tab-btn:hover { border-color: var(--green); color: var(--green); background: var(--dim); box-shadow: var(--glow); }
 
-    /* ── VPN PANEL (slides from left edge) ── */
-    #vpn-edge-trigger {
+    /* ── FLOATING VPN PANEL ── */
+    #vpn-floater {
       position: fixed;
-      top: 48px;
-      left: 0;
-      bottom: 0;
-      width: 8px;
-      z-index: 99999;
-      pointer-events: all;
+      bottom: 10px;
+      left: 10px;
+      z-index: 100;
+    }
+    #vpn-panel {
+      background: var(--bg2);
+      border: 2px solid var(--green3);
+      border-radius: 4px;
+      min-width: 200px;
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
     }
     
     #vpn-floater {
@@ -627,8 +631,7 @@
   <button id="toggle-terminal" class="nav-btn" title="Toggle Terminal">⌨</button>
 </div>
 
-<!-- ── VPN PANEL (hidden, slides from left) ── -->
-<div id="vpn-edge-trigger"></div>
+<!-- ── FLOATING VPN PANEL ── -->
 <div id="vpn-floater">
   <div id="vpn-panel">
     <div id="vpn-header">
@@ -936,27 +939,6 @@
   })
 
   applyPinState()
-
-  // ── VPN PANEL HOVER (slides from left) ─────────────────────
-  const vpnFloater     = document.getElementById('vpn-floater')
-  const vpnEdgeTrigger = document.getElementById('vpn-edge-trigger')
-  let vpnHoverTimer = null
-
-  function openVpnPanel() {
-    clearTimeout(vpnHoverTimer)
-    vpnFloater.classList.add('open')
-  }
-
-  function closeVpnPanel() {
-    vpnHoverTimer = setTimeout(() => {
-      vpnFloater.classList.remove('open')
-    }, 300)
-  }
-
-  vpnEdgeTrigger.addEventListener('mouseenter', openVpnPanel)
-  vpnEdgeTrigger.addEventListener('mouseover', openVpnPanel)
-  vpnFloater.addEventListener('mouseenter', openVpnPanel)
-  vpnFloater.addEventListener('mouseleave', closeVpnPanel)
 
   // ── VPN ──────────────────────────────────────────────────────
   const vpnDot        = document.getElementById('vpn-dot')
