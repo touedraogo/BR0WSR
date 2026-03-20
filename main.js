@@ -266,26 +266,54 @@ app.whenReady().then(() => {
     'macclaw.local',
     'github.com',
     'duck.ai',
-    'search.brave.com'
+    'search.brave.com',
+    'accounts.x.ai',
+    'abs.twimg.com',
+    'payments.x.com',
+    'money.x.com'
   ]
 
+  // Check if URL should have full access
+  function shouldBypassBlocker(url) {
+    try {
+      const urlObj = new URL(url)
+      const host = urlObj.hostname.replace(/^www\./, '')
+      return NO_BLOCK_DOMAINS.some(domain => 
+        host === domain || host.endsWith('.' + domain)
+      )
+    } catch {
+      return false
+    }
+  }
+
   ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).then(blocker => {
-    // Disable blocker entirely for sensitive/oauth sites
+    // Disable blocker for sensitive domains using session partition
+    const partition = session.fromPartition('persist:no-block')
+    
+    // Bypass blocker entirely for sensitive domains
     session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
-      const urlObj = details.url.startsWith('http') ? new URL(details.url) : null
-      if (urlObj) {
-        const host = urlObj.hostname.replace(/^www\./, '')
-        if (NO_BLOCK_DOMAINS.some(domain => host === domain || host.endsWith('.' + domain))) {
-          callback({ cancel: false })
-          return
-        }
+      if (shouldBypassBlocker(details.url)) {
+        callback({ cancel: false })
+      } else {
+        callback({ cancel: blocker.shouldBlock(details.url) })
       }
-      callback({ cancel: blocker.shouldBlock(details.url) })
     })
+    
+    // Also bypass CSP modifications for sensitive domains
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      if (shouldBypassBlocker(details.url)) {
+        callback({})
+        return
+      }
+      callback({})
+    })
+    
     blocker.enableBlockingInSession(session.defaultSession)
     app.on('session-created', s => blocker.enableBlockingInSession(s))
-    console.log('[blocker] active (full access for sensitive sites)')
-  }).catch(err => console.error('[blocker] error:', err))
+    console.log('[blocker] active (bypassed for sensitive sites)')
+  }).catch(err => {
+    console.log('[blocker] disabled:', err.message)
+  })
 })
 
 ipcMain.handle('screenshot-capture', async () => {
