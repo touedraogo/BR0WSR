@@ -708,11 +708,17 @@
   const PRIVATE_BROWSING_DOMAINS = [
     'x.com',
     'twitter.com',
+    'www.x.com',
+    'mobile.x.com',
     'x.ai',
     'accounts.x.ai',
+    'api.x.ai',
     'grok.com',
     'grok.ai',
-    'grokipedia.com'
+    'grokipedia.com',
+    'abs.twimg.com',
+    'twimg.com',
+    'cdn.twimg.com'
   ]
 
   function needsPrivateBrowsing(url) {
@@ -845,6 +851,12 @@
     const meta = tabMeta[activeId]
     if (!meta) return
     meta.url = url
+    
+    // Set partition for private browsing if needed
+    if (needsPrivateBrowsing(url)) {
+      meta.wv.setAttribute('partition', 'persist:private-sessions')
+    }
+    
     homeEl.classList.add('hidden')
     meta.wvWrap.classList.add('active')
     urlBar.value = url
