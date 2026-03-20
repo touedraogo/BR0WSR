@@ -694,6 +694,45 @@
   let tabIdCounter = 0
   const tabMeta = {}   // id → { title, url, wvWrap, wv }
 
+  // ── DEFAULT SESSIONS ──────────────────────────────────────────
+  const DEFAULT_SESSIONS = [
+    { title: 'OpenCode', url: 'http://macclaw.local:4096/' },
+    { title: 'GitHub', url: 'https://github.com/dashboard' },
+    { title: 'Brave Ask', url: 'https://search.brave.com/ask' },
+    { title: 'DuckDuckGo AI', url: 'https://duck.ai' },
+    { title: 'Grok', url: 'https://grok.com' },
+    { title: 'Grokipedia', url: 'https://grokipedia.com' },
+  ]
+
+  // ── SESSION PERSISTENCE ─────────────────────────────────────
+  const SESSIONS_KEY = 'browser-sessions'
+
+  function saveSessions() {
+    const sessions = Object.entries(tabMeta).map(([id, meta]) => ({
+      id: Number(id),
+      url: meta.url,
+      title: meta.title
+    }))
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify({
+      sessions,
+      activeId,
+      counter: tabIdCounter
+    }))
+  }
+
+  function loadSessions() {
+    const saved = localStorage.getItem(SESSIONS_KEY)
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        return data
+      } catch (e) {
+        console.error('Failed to load sessions:', e)
+      }
+    }
+    return null
+  }
+
   // ── URL helper ──────────────────────────────────────────────
   function toURL(raw) {
     raw = raw.trim()
@@ -704,7 +743,7 @@
   }
 
   // ── Tab management ───────────────────────────────────────────
-  function createTab() {
+  function createTab(url = null) {
     const id = ++tabIdCounter
 
     const wvWrap = document.createElement('div')
@@ -720,21 +759,34 @@
       if (tabMeta[id]) {
         tabMeta[id].title = e.title
         renderTabs()
+        saveSessions()
       }
     })
 
     wv.addEventListener('did-navigate', e => {
       if (tabMeta[id]) tabMeta[id].url = e.url
       if (id === activeId) urlBar.value = e.url
+      saveSessions()
     })
 
     wv.addEventListener('did-navigate-in-page', e => {
       if (!e.isMainFrame) return
       if (tabMeta[id]) tabMeta[id].url = e.url
       if (id === activeId) urlBar.value = e.url
+      saveSessions()
     })
 
     tabMeta[id] = { title: 'New Tab', url: null, wvWrap, wv }
+    
+    if (url) {
+      setTimeout(() => {
+        tabMeta[id].url = url
+        tabMeta[id].title = url.split('/')[2] || 'Tab'
+        tabMeta[id].wvWrap.classList.add('active')
+        tabMeta[id].wv.src = url
+      }, 10)
+    }
+    
     return id
   }
 
@@ -767,6 +819,7 @@
     urlBar.value = url
     meta.wv.src = url
     renderTabs()
+    saveSessions()
   }
 
   function closeTab(id) {
@@ -774,6 +827,7 @@
     if (!meta) return
     meta.wvWrap.remove()
     delete tabMeta[id]
+    saveSessions()
 
     const remaining = Object.keys(tabMeta).map(Number)
     if (!remaining.length) {
@@ -837,8 +891,35 @@
   })
 
   // ── Init ─────────────────────────────────────────────────────
-  openNewTab()
-  setTimeout(() => homeInput.focus(), 100)
+  function initSessions() {
+    const saved = loadSessions()
+    
+    if (saved && saved.sessions && saved.sessions.length > 0) {
+      // Restore saved sessions
+      tabIdCounter = saved.counter || 0
+      saved.sessions.forEach(session => {
+        const id = createTab(session.url)
+        if (session.title && tabMeta[id]) {
+          tabMeta[id].title = session.title
+        }
+      })
+      activeId = saved.activeId || Object.keys(tabMeta)[0]
+      switchTab(activeId)
+      renderTabs()
+    } else {
+      // Load default sessions
+      DEFAULT_SESSIONS.forEach(session => {
+        createTab(session.url)
+      })
+      if (Object.keys(tabMeta).length > 0) {
+        switchTab(Object.keys(tabMeta)[0])
+      }
+      renderTabs()
+    }
+  }
+  
+  initSessions()
+  setTimeout(() => homeInput.focus(), 200)
 
   // ── Sidebar pin / hover ──────────────────────────────────────
   const sidebar          = document.getElementById('sidebar')
