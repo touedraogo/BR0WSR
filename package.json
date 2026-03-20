@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "rebuild": "electron-rebuild"
+    "rebuild": "electron-rebuild",
+    "build": "electron-builder --mac"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
