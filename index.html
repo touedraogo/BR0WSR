@@ -195,16 +195,29 @@
     }
     #new-tab-btn:hover { border-color: var(--green); color: var(--green); background: var(--dim); box-shadow: var(--glow); }
 
-    /* ── FLOATING VPN PANEL (hidden until login) ── */
+    /* ── VPN PANEL (slides from left edge, auto-hide) ── */
+    #vpn-edge-trigger {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 8px;
+      height: 150px;
+      z-index: 101;
+      pointer-events: all;
+    }
     #vpn-floater {
       position: fixed;
       bottom: 10px;
-      left: 10px;
+      left: 0;
       z-index: 100;
-      display: none;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      pointer-events: none;
     }
+    #vpn-floater:hover,
     #vpn-floater.visible {
-      display: block;
+      transform: translateX(0);
+      pointer-events: all;
     }
     #vpn-panel {
       background: var(--bg2);
@@ -604,7 +617,8 @@
   <button id="toggle-terminal" class="nav-btn" title="Toggle Terminal">⌨</button>
 </div>
 
-<!-- ── FLOATING VPN PANEL ── -->
+<!-- ── VPN PANEL (slides from left) ── -->
+<div id="vpn-edge-trigger"></div>
 <div id="vpn-floater">
   <div id="vpn-panel">
     <div id="vpn-header">
@@ -697,6 +711,7 @@
   // ── DEFAULT SESSIONS ──────────────────────────────────────────
   const DEFAULT_SESSIONS = [
     { title: 'OpenCode', url: 'http://macclaw.local:4096/' },
+    { title: 'X.com', url: 'https://x.com' },
     { title: 'GitHub', url: 'https://github.com/dashboard' },
     { title: 'Brave Ask', url: 'https://search.brave.com/ask' },
     { title: 'DuckDuckGo AI', url: 'https://duck.ai' },
@@ -1497,6 +1512,26 @@
     vpnFloater.classList.add('visible')
     setTimeout(() => { lockScreen.style.display = 'none'; homeInput.focus() }, 420)
   }
+
+  // ── VPN PANEL AUTO-HIDE ────────────────────────────────────
+  const vpnEdgeTrigger = document.getElementById('vpn-edge-trigger')
+  let vpnHideTimer = null
+
+  vpnEdgeTrigger.addEventListener('mouseenter', () => {
+    clearTimeout(vpnHideTimer)
+    vpnFloater.classList.add('visible')
+  })
+
+  vpnFloater.addEventListener('mouseenter', () => {
+    clearTimeout(vpnHideTimer)
+    vpnFloater.classList.add('visible')
+  })
+
+  vpnFloater.addEventListener('mouseleave', () => {
+    vpnHideTimer = setTimeout(() => {
+      vpnFloater.classList.remove('visible')
+    }, 500)
+  })
 
   async function attemptFingerprint() {
     if (fpBusy) return
