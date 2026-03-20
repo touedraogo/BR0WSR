@@ -255,31 +255,29 @@ app.whenReady().then(() => {
 
   win.loadFile('index.html')
 
-  // Sites with NO ad-blocking (full access)
-  const FULL_ACCESS_DOMAINS = [
+  // Sites that need private browsing (OAuth, login, etc.)
+  const PRIVATE_BROWSING_DOMAINS = [
     'x.com',
     'twitter.com',
     'x.ai',
+    'accounts.x.ai',
     'grok.com',
     'grok.ai',
-    'grokipedia.com',
-    'macclaw.local',
-    'github.com',
-    'duck.ai',
-    'search.brave.com',
-    'abs.twimg.com',
-    'twimg.com',
-    'appsflyersdk.com',
-    'stripe.com',
-    'arkoselabs.com',
-    'recaptcha.net'
+    'grokipedia.com'
   ]
 
-  function shouldBypassBlocker(url) {
+  // Create private session for sensitive sites
+  const privateSession = session.fromPartition('private-sessions', {
+    cache: true,
+    persistent: false
+  })
+
+  // Function to check if URL needs private browsing
+  function needsPrivateBrowsing(url) {
     try {
       const urlObj = new URL(url)
       const host = urlObj.hostname.replace(/^www\./, '')
-      return FULL_ACCESS_DOMAINS.some(domain => 
+      return PRIVATE_BROWSING_DOMAINS.some(domain => 
         host === domain || host.endsWith('.' + domain)
       )
     } catch {
@@ -287,14 +285,7 @@ app.whenReady().then(() => {
     }
   }
 
-  // Don't load ad blocker at all for now - it interferes with OAuth flows
-  // electron-blocker can be re-enabled later with proper configuration
-  console.log('[blocker] disabled for compatibility')
-  
-  // Optional: enable ad blocker later with:
-  // ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).then(blocker => {
-  //   blocker.enableBlockingInSession(session.defaultSession)
-  // }).catch(err => console.log('[blocker] error:', err.message))
+  console.log('[sessions] private browsing enabled for:', PRIVATE_BROWSING_DOMAINS.join(', '))
 })
 
 ipcMain.handle('screenshot-capture', async () => {

@@ -704,6 +704,30 @@
     { title: 'Grokipedia', url: 'https://grokipedia.com' },
   ]
 
+  // ── PRIVATE BROWSING DOMAINS ────────────────────────────────
+  const PRIVATE_BROWSING_DOMAINS = [
+    'x.com',
+    'twitter.com',
+    'x.ai',
+    'accounts.x.ai',
+    'grok.com',
+    'grok.ai',
+    'grokipedia.com'
+  ]
+
+  function needsPrivateBrowsing(url) {
+    if (!url) return false
+    try {
+      const urlObj = new URL(url)
+      const host = urlObj.hostname.replace(/^www\./, '')
+      return PRIVATE_BROWSING_DOMAINS.some(domain => 
+        host === domain || host.endsWith('.' + domain)
+      )
+    } catch {
+      return false
+    }
+  }
+
   // ── SESSION PERSISTENCE ─────────────────────────────────────
   const SESSIONS_KEY = 'browser-sessions'
 
@@ -756,6 +780,11 @@
     wv.setAttribute('enableremotemodule', 'false')
     wvWrap.appendChild(wv)
     contentEl.appendChild(wvWrap)
+    
+    // Check if this tab needs private browsing based on URL
+    if (url && needsPrivateBrowsing(url)) {
+      wv.setAttribute('partition', 'persist:private-sessions')
+    }
 
     wv.addEventListener('page-title-updated', e => {
       if (tabMeta[id]) {
