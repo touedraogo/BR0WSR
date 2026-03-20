@@ -255,34 +255,36 @@ app.whenReady().then(() => {
 
   win.loadFile('index.html')
 
-  // Whitelist for sites that need full access
-  const BLOCKER_WHITELIST = [
+  // Sites with NO ad-blocking (full access)
+  const NO_BLOCK_DOMAINS = [
     'x.com',
     'twitter.com',
     'x.ai',
     'grok.com',
     'grok.ai',
     'grokipedia.com',
-    'macclaw.local'
+    'macclaw.local',
+    'github.com',
+    'duck.ai',
+    'search.brave.com'
   ]
 
   ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).then(blocker => {
-    // Completely disable blocker for whitelisted domains
+    // Disable blocker entirely for sensitive/oauth sites
     session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
       const urlObj = details.url.startsWith('http') ? new URL(details.url) : null
       if (urlObj) {
         const host = urlObj.hostname.replace(/^www\./, '')
-        if (BLOCKER_WHITELIST.some(domain => host === domain || host.endsWith('.' + domain))) {
+        if (NO_BLOCK_DOMAINS.some(domain => host === domain || host.endsWith('.' + domain))) {
           callback({ cancel: false })
           return
         }
       }
-      const cancel = blocker.shouldBlock(details.url)
-      callback({ cancel })
+      callback({ cancel: blocker.shouldBlock(details.url) })
     })
     blocker.enableBlockingInSession(session.defaultSession)
     app.on('session-created', s => blocker.enableBlockingInSession(s))
-    console.log('[blocker] active (with whitelist)')
+    console.log('[blocker] active (full access for sensitive sites)')
   }).catch(err => console.error('[blocker] error:', err))
 })
 
