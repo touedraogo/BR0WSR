@@ -752,6 +752,8 @@
 
     const wv = document.createElement('webview')
     wv.setAttribute('allowpopups', '')
+    wv.setAttribute('webpreferences', 'contextIsolation=yes,nodeIntegration=no')
+    wv.setAttribute('enableremotemodule', 'false')
     wvWrap.appendChild(wv)
     contentEl.appendChild(wvWrap)
 
